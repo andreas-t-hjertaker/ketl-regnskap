@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AnalyticsProvider } from "@/components/analytics-provider";
+import { AuthProvider } from "@/components/auth-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const geist = Geist({
   variable: "--font-sans",
@@ -28,8 +30,12 @@ export default function RootLayout({
       <body
         className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}
       >
-        <AnalyticsProvider />
-        {children}
+        <AuthProvider>
+          <TooltipProvider>
+            <AnalyticsProvider />
+            {children}
+          </TooltipProvider>
+        </AuthProvider>
       </body>
     </html>
   );
