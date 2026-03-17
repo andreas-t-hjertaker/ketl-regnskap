@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogOut } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -37,6 +38,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
             <span className="hidden text-sm text-muted-foreground sm:inline">
               {user?.displayName || user?.email}
             </span>
+            <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
