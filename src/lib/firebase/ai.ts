@@ -8,9 +8,9 @@ const ai = getAI(app, { backend: new GoogleAIBackend() });
 
 /**
  * Hent en Gemini-modell for generativ AI.
- * Standard: gemini-2.0-flash — rask og billig.
+ * Standard: gemini-2.0-flash-lite — rask og billig.
  */
-export function getModel(modelName = "gemini-2.0-flash") {
+export function getModel(modelName = "gemini-2.0-flash-lite") {
   return getGenerativeModel(ai, { model: modelName });
 }
 

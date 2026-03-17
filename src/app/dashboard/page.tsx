@@ -145,7 +145,7 @@ export default function DashboardPage() {
         const { getModel } = await import("@/lib/firebase/ai");
         const model = getModel();
         if (model) {
-          updateService("AI Logic", "ok", "gemini-2.0-flash");
+          updateService("AI Logic", "ok", "gemini-2.0-flash-lite");
         }
       } catch {
         updateService("AI Logic", "error", "Ikke konfigurert");
