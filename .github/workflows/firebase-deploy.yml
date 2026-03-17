@@ -12,7 +12,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       # Build frontend
@@ -33,7 +33,13 @@ jobs:
       - name: Setup credentials
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/sa.json
 
-      # Deploy hosting
+      # Deploy functions FIRST (hosting depends on them)
+      - name: Deploy Firebase Functions
+        run: npx firebase-tools@latest deploy --only functions --project ketlcloud --force
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
+
+      # Deploy hosting AFTER functions are live
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
@@ -41,9 +47,3 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: ketlcloud
-
-      # Deploy functions
-      - name: Deploy Firebase Functions
-        run: npx firebase-tools@latest deploy --only functions --project ketlcloud --force
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
