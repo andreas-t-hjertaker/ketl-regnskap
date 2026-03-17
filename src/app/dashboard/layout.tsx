@@ -13,6 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { AiAssistant } from "@/modules/ai-assistant";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -72,6 +73,19 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         {/* Hovedinnhold */}
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
+      <AiAssistant
+        title="ketl assistent"
+        welcomeMessage="Hei! Jeg er din AI-assistent. Spør meg om hva som helst!"
+        contextProvider={() => ({
+          user: user
+            ? { displayName: user.displayName, email: user.email, uid: user.uid }
+            : undefined,
+          appName: "ketl cloud",
+          currentPath: typeof window !== "undefined" ? window.location.pathname : "/dashboard",
+          customContext:
+            "Tilgjengelige tjenester: Firebase Hosting, Firestore, Cloud Storage, Cloud Functions, AI Logic, Analytics.",
+        })}
+      />
     </div>
   );
 }

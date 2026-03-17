@@ -2,6 +2,23 @@
 
 SaaS-boilerplate med Next.js, Firebase og TypeScript — klar til bruk for nye prosjekter.
 
+## Funksjoner
+
+- **Autentisering** — Google og e-post/passord via Firebase Auth, med beskyttede ruter
+- **Dashboard** — Admin-layout med sammenleggbar sidebar, topplinje og brukermeny
+- **AI-assistent** — Popup chat-widget med streaming (Firebase AI Logic / Gemini)
+- **Tema** — Lys/mørk/system med localStorage-persistering
+- **Datatabell** — Generisk komponent med sortering, søk og paginering
+- **Skjema** — React Hook Form + Zod-validering med gjenbrukbare komponenter
+- **Toast** — Varsler via Sonner (suksess, feil, info, lasting)
+- **Lasteindikatorer** — Skeleton-loading for sider og komponenter
+- **SEO** — Open Graph, robots.txt, sitemap.xml
+- **API** — Cloud Functions med auth-middleware og Zod-validering
+- **Firestore** — CRUD, sanntidslyttere, paginering, batch-operasjoner
+- **Analytics** — Automatisk sidevisnings-sporing via Firebase Analytics
+- **Testing** — Vitest + Testing Library
+- **CI/CD** — GitHub Actions → Firebase deploy
+
 ## Kom i gang
 
 ```bash
@@ -31,7 +48,8 @@ npm run dev
 4. **Aktiver Auth-metoder** i Firebase Console → Authentication → Sign-in method:
    - E-post/passord
    - Google
-5. **Push til `main`** — GitHub Actions bygger og deployer automatisk
+5. **Aktiver Gemini** i Firebase Console → AI Logic (for AI-assistenten)
+6. **Push til `main`** — GitHub Actions bygger og deployer automatisk
 
 ## Tech stack
 
@@ -43,9 +61,10 @@ npm run dev
 | Database | Cloud Firestore (NoSQL, sanntidssynk) |
 | Autentisering | Firebase Auth (Google, e-post/passord) |
 | Lagring | Firebase Cloud Storage |
-| AI | Firebase AI Logic (Gemini) |
+| AI | Firebase AI Logic (Gemini) — chat-assistent med streaming |
 | Analytics | Firebase Analytics |
 | Hosting | Firebase Hosting (statisk eksport) |
+| Skjema | React Hook Form + Zod-validering |
 | Testing | Vitest, Testing Library |
 | CI/CD | GitHub Actions → Firebase |
 
@@ -63,7 +82,7 @@ src/
 │   │   ├── layout.tsx             # Metadata for innlogging
 │   │   └── page.tsx               # Innloggingsside (e-post, Google, registrering)
 │   └── dashboard/
-│       ├── layout.tsx             # Beskyttet layout med sidebar + topplinje
+│       ├── layout.tsx             # Beskyttet layout med sidebar + topplinje + AI-assistent
 │       ├── page.tsx               # Dashboard-oversikt med tjenestestatus
 │       ├── loading.tsx            # Dashboard laste-skeleton
 │       ├── dokumenter/page.tsx    # Datatabell-eksempel
@@ -97,6 +116,20 @@ src/
 │       ├── analytics.ts           # Event- og sidevisnings-sporing
 │       ├── ai.ts                  # Gemini (tekst, streaming, chat)
 │       └── index.ts               # Re-exports
+├── modules/
+│   └── ai-assistant/              # AI-assistent modul (selvinneholdt)
+│       ├── index.ts               # Offentlig API (AiAssistant, useAiAssistant, typer)
+│       ├── types.ts               # ChatMessage, AssistantContext, ChatConfig
+│       ├── hooks/
+│       │   └── use-chat.ts        # Chat-sesjon med streaming via Firebase AI
+│       ├── components/
+│       │   ├── ai-assistant.tsx   # Hovedkomponent (FAB + popup-panel)
+│       │   ├── chat-bubble.tsx    # Meldingsboble (bruker/assistent, markdown)
+│       │   ├── chat-input.tsx     # Tekst-input med auto-vekst
+│       │   └── chat-messages.tsx  # Meldingsliste med auto-scroll
+│       └── lib/
+│           ├── context.ts         # Standard kontekst-bygger
+│           └── system-prompt.ts   # System-instruksjon for AI
 ├── types/
 │   └── index.ts                   # ApiResponse, User, WithId, WithTimestamps, etc.
 └── __tests__/
@@ -129,6 +162,42 @@ Bruker → Login-side → Firebase Auth → AuthProvider (context)
 ```
 
 `AuthProvider` lytter på `onAuthStateChanged` og deler brukertilstand via React context. `ProtectedRoute` omdirigerer til `/login` hvis bruker ikke er innlogget.
+
+### AI-assistent
+
+```
+Bruker → ChatInput → useChatSession → Firebase AI Logic (Gemini)
+                          ↓                    ↓
+                    setMessages()        sendMessageStream()
+                          ↓                    ↓
+                    ChatMessages ← streaming chunks ← Gemini API
+```
+
+AI-assistenten er en selvinneholdt modul under `src/modules/ai-assistant/`. Den bruker Firebase AI Logic direkte fra klienten — ingen API-ruter eller backend nødvendig.
+
+**Nøkkelfunksjoner:**
+- Streaming-svar med sanntidsoppdatering
+- Kontekstbevisst system-prompt (brukerinfo, gjeldende side, tilgjengelige tjenester)
+- Markdown-rendering av assistent-svar
+- Automatisk sesjon-gjenskapning ved kontekstendring (side/bruker)
+- FAB-knapp med popup chat-panel
+
+**Tilpasning:**
+
+```tsx
+import { AiAssistant } from "@/modules/ai-assistant";
+
+<AiAssistant
+  title="Min assistent"
+  welcomeMessage="Hei! Hvordan kan jeg hjelpe?"
+  position="bottom-right"
+  contextProvider={() => ({
+    appName: "Min app",
+    currentPath: window.location.pathname,
+    customContext: "Ekstra kontekst for AI-en",
+  })}
+/>
+```
 
 ### API via Cloud Functions
 
