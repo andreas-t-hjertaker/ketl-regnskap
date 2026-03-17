@@ -32,7 +32,7 @@ export const health = onRequest(
  * Generisk API-endpoint — utvid med routing etter behov
  */
 export const api = onRequest(
-  { region: "europe-west1", cors: true },
+  { region: "europe-west1", cors: true, invoker: "public" },
   async (req, res) => {
     const { method, path } = req;
 
