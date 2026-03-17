@@ -1,58 +1,36 @@
-# Sandbox — Firebase Notes
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Minimalistisk webapp med Firebase Hosting + Firestore.  
-Sanntids notatapp — alt synker live mellom alle klienter.
+## Getting Started
 
-## Oppsett
-
-### 1. Klon repoet
+First, run the development server:
 
 ```bash
-git clone https://github.com/andreas-t-hjertaker/sandbox.git
-cd sandbox
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-### 2. Installer Firebase CLI
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-```bash
-npm install -g firebase-tools
-firebase login
-```
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-### 3. Koble til ditt Firebase-prosjekt
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-Oppdater `.firebaserc` med din prosjekt-ID:
+## Learn More
 
-```json
-{
-  "projects": {
-    "default": "ditt-firebase-prosjekt-id"
-  }
-}
-```
+To learn more about Next.js, take a look at the following resources:
 
-Oppdater `public/app.js` med din Firebase-config (fra Firebase Console → Project Settings).
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-### 4. Aktiver Firestore
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-I Firebase Console: Build → Firestore Database → Create database → Start in test mode.
+## Deploy on Vercel
 
-### 5. Deploy
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-```bash
-firebase deploy
-```
-
-Ferdig. Appen er live på `https://ditt-prosjekt-id.web.app`.
-
-## Struktur
-
-```
-├── public/
-│   ├── index.html    # Enkel HTML-shell
-│   ├── style.css     # Mørkt minimalt design
-│   └── app.js        # Firebase init + Firestore CRUD
-├── firebase.json     # Hosting + Firestore config
-├── firestore.rules   # Sikkerhetsregler (åpne for demo)
-└── .firebaserc       # Prosjekt-mapping
-```
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

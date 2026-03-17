@@ -1,8 +1,8 @@
 rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
+service firebase.storage {
+  match /b/{bucket}/o {
     // Åpent for utvikling — stram inn før prod
-    match /{document=**} {
+    match /{allPaths=**} {
       allow read, write: if true;
     }
   }
