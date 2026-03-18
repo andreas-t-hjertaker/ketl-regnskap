@@ -76,7 +76,16 @@ const getNotes = withAuth(async ({ user, res }) => {
 // Stripe-konfigurasjon
 // ============================================================
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+/** Lazy Stripe-initialisering — unngår krasj når env-variabelen mangler (f.eks. i CI deploy-analyse) */
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) throw new Error("STRIPE_SECRET_KEY er ikke konfigurert");
+    _stripe = new Stripe(key);
+  }
+  return _stripe;
+}
 
 // ============================================================
 // Stripe-handlers
@@ -97,7 +106,7 @@ const createCheckout = withAuth(async ({ user, res, req }) => {
   if (subDoc.exists && subDoc.data()?.stripeCustomerId) {
     customerId = subDoc.data()!.stripeCustomerId;
   } else {
-    const customer = await stripe.customers.create({
+    const customer = await getStripe().customers.create({
       email: user.email ?? undefined,
       metadata: { firebaseUid: user.uid },
     });
@@ -108,7 +117,7 @@ const createCheckout = withAuth(async ({ user, res, req }) => {
     );
   }
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     customer: customerId,
     mode: "subscription",
     line_items: [{ price: priceId, quantity: 1 }],
@@ -130,7 +139,7 @@ const createPortal = withAuth(async ({ user, res, req }) => {
     return;
   }
 
-  const session = await stripe.billingPortal.sessions.create({
+  const session = await getStripe().billingPortal.sessions.create({
     customer: customerId,
     return_url: `${req.headers.origin || "https://ketlcloud.web.app"}/dashboard/abonnement`,
   });
@@ -145,7 +154,7 @@ const handleWebhook = async ({ req, res }: RouteContext) => {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+    event = getStripe().webhooks.constructEvent(req.rawBody, sig, webhookSecret);
   } catch (err) {
     fail(res, `Webhook-signatur ugyldig: ${err instanceof Error ? err.message : "ukjent feil"}`, 400);
     return;
@@ -156,7 +165,7 @@ const handleWebhook = async ({ req, res }: RouteContext) => {
       const session = event.data.object as Stripe.Checkout.Session;
       const uid = session.metadata?.firebaseUid;
       if (uid && session.subscription) {
-        const sub = await stripe.subscriptions.retrieve(
+        const sub = await getStripe().subscriptions.retrieve(
           session.subscription as string,
           { expand: ["latest_invoice"] }
         );
