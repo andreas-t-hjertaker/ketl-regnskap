@@ -15,6 +15,7 @@ import { LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AiAssistant } from "@/modules/ai-assistant";
 import { OnboardingStepper } from "@/components/onboarding-stepper";
+import { PageTransition } from "@/components/motion";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -72,7 +73,9 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Hovedinnhold */}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-6">
+          <PageTransition>{children}</PageTransition>
+        </main>
       </div>
       <AiAssistant
         title="ketl assistent"

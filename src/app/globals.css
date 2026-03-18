@@ -126,3 +126,14 @@
     @apply font-sans;
     }
 }
+
+/* Shimmer-animasjon for skeleton-loading */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@utility animate-shimmer {
+  animation: shimmer 1.5s infinite;
+}

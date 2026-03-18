@@ -53,10 +53,10 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
             href={item.href}
             onClick={onClick}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200",
               isActive
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                ? "bg-accent text-accent-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground hover:translate-x-0.5"
             )}
           >
             <item.icon className="h-4 w-4" />

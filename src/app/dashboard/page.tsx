@@ -12,7 +12,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Cloud,
   Database,
@@ -27,6 +26,9 @@ import {
   FileText,
   Zap,
 } from "lucide-react";
+import { SlideIn, StaggerList, StaggerItem, AnimatedCounter } from "@/components/motion";
+import { AnimatedCard } from "@/components/motion";
+import { SkeletonShimmer } from "@/components/motion";
 
 type ServiceStatus = "checking" | "ok" | "error";
 
@@ -145,7 +147,7 @@ export default function DashboardPage() {
         const { getModel } = await import("@/lib/firebase/ai");
         const model = getModel();
         if (model) {
-          updateService("AI Logic", "ok", "gemini-2.0-flash");
+          updateService("AI Logic", "ok", "gemini-2.5-flash");
         }
       } catch {
         updateService("AI Logic", "error", "Ikke konfigurert");
@@ -180,126 +182,152 @@ export default function DashboardPage() {
 
   // Placeholder-statistikk
   const stats = [
-    { label: "Brukere", value: "—", icon: Users },
-    { label: "Dokumenter", value: "—", icon: FileText },
-    { label: "API-kall", value: "—", icon: Zap },
+    { label: "Brukere", value: 0, icon: Users },
+    { label: "Dokumenter", value: 0, icon: FileText },
+    { label: "API-kall", value: 0, icon: Zap },
   ];
 
   return (
     <div className="space-y-8">
       {/* Velkomsthilsen */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Velkommen{user?.displayName ? `, ${user.displayName}` : ""}
-        </h1>
-        <p className="text-muted-foreground">
-          Her er en oversikt over prosjektet ditt.
-        </p>
-      </div>
+      <SlideIn direction="up" duration={0.4}>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Velkommen{user?.displayName ? `, ${user.displayName}` : ""}
+          </h1>
+          <p className="text-muted-foreground">
+            Her er en oversikt over prosjektet ditt.
+          </p>
+        </div>
+      </SlideIn>
 
       {/* Hurtigstatistikk */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <StaggerList className="grid gap-4 sm:grid-cols-3" staggerDelay={0.08}>
         {stats.map((stat) => (
-          <Card key={stat.label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardDescription>{stat.label}</CardDescription>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {stat.value === "—" ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <p className="text-2xl font-bold">{stat.value}</p>
-              )}
-            </CardContent>
-          </Card>
+          <StaggerItem key={stat.label}>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardDescription>{stat.label}</CardDescription>
+                <stat.icon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                {stat.value === 0 ? (
+                  <SkeletonShimmer className="h-8 w-16" />
+                ) : (
+                  <p className="text-2xl font-bold">
+                    <AnimatedCounter value={stat.value} />
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </StaggerItem>
         ))}
-      </div>
+      </StaggerList>
 
       <Separator />
 
       {/* Tjenestestatus */}
       <div>
-        <div className="mb-4 flex items-center gap-3">
-          <h2 className="text-lg font-semibold">Tjenestestatus</h2>
-          <Badge variant="outline" className="font-mono text-xs">
-            {checking ? (
-              <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-            ) : allOk ? (
-              <CheckCircle2 className="mr-1.5 h-3 w-3 text-green-500" />
-            ) : (
-              <XCircle className="mr-1.5 h-3 w-3 text-red-500" />
-            )}
-            {checking
-              ? "Sjekker..."
-              : allOk
-                ? "Alle operative"
-                : "Problemer oppdaget"}
-          </Badge>
-        </div>
+        <SlideIn direction="up" delay={0.1}>
+          <div className="mb-4 flex items-center gap-3">
+            <h2 className="text-lg font-semibold">Tjenestestatus</h2>
+            <Badge variant="outline" className="font-mono text-xs">
+              {checking ? (
+                <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+              ) : allOk ? (
+                <CheckCircle2 className="mr-1.5 h-3 w-3 text-green-500" />
+              ) : (
+                <XCircle className="mr-1.5 h-3 w-3 text-red-500" />
+              )}
+              {checking
+                ? "Sjekker..."
+                : allOk
+                  ? "Alle operative"
+                  : "Problemer oppdaget"}
+            </Badge>
+          </div>
+        </SlideIn>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StaggerList
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          staggerDelay={0.06}
+          initialDelay={0.15}
+        >
           {services.map((s) => (
-            <Card key={s.name} className="border-border/50 bg-card/50">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <s.icon className="h-5 w-5 text-muted-foreground" />
-                  <StatusIndicator status={s.status} />
-                </div>
-                <CardTitle className="text-base">{s.name}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-sm">
-                  {s.description}
-                </CardDescription>
-                {s.detail && (
-                  <p className="mt-2 font-mono text-xs text-muted-foreground">
-                    {s.detail}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+            <StaggerItem key={s.name}>
+              <Card className="border-border/50 bg-card/50">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <s.icon className="h-5 w-5 text-muted-foreground" />
+                    <StatusIndicator status={s.status} />
+                  </div>
+                  <CardTitle className="text-base">{s.name}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-sm">
+                    {s.description}
+                  </CardDescription>
+                  {s.detail && (
+                    <p className="mt-2 font-mono text-xs text-muted-foreground">
+                      {s.detail}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerList>
       </div>
 
       <Separator />
 
       {/* API-endepunkter */}
       <div>
-        <h2 className="mb-4 text-lg font-semibold">API-endepunkter</h2>
-        <div className="space-y-3">
-          <Endpoint
-            method="GET"
-            path="/health"
-            url="https://health-238849700424.europe-west1.run.app"
-            description="Helsestatus for backend"
-          />
-          <Endpoint
-            method="GET"
-            path="/api"
-            url="https://api-238849700424.europe-west1.run.app"
-            description="API-rotendepunkt"
-          />
-          <Endpoint
-            method="GET"
-            path="/api/me"
-            url="https://api-238849700424.europe-west1.run.app/me"
-            description="Brukerinfo (krever token)"
-          />
-          <Endpoint
-            method="GET"
-            path="/api/notes"
-            url="https://api-238849700424.europe-west1.run.app/notes"
-            description="Hent notater (krever token)"
-          />
-          <Endpoint
-            method="POST"
-            path="/api/notes"
-            url="https://api-238849700424.europe-west1.run.app/notes"
-            description="Opprett notat (krever token)"
-          />
-        </div>
+        <SlideIn direction="up" delay={0.1}>
+          <h2 className="mb-4 text-lg font-semibold">API-endepunkter</h2>
+        </SlideIn>
+        <StaggerList className="space-y-3" staggerDelay={0.05} initialDelay={0.15}>
+          <StaggerItem>
+            <Endpoint
+              method="GET"
+              path="/health"
+              url="https://health-238849700424.europe-west1.run.app"
+              description="Helsestatus for backend"
+            />
+          </StaggerItem>
+          <StaggerItem>
+            <Endpoint
+              method="GET"
+              path="/api"
+              url="https://api-238849700424.europe-west1.run.app"
+              description="API-rotendepunkt"
+            />
+          </StaggerItem>
+          <StaggerItem>
+            <Endpoint
+              method="GET"
+              path="/api/me"
+              url="https://api-238849700424.europe-west1.run.app/me"
+              description="Brukerinfo (krever token)"
+            />
+          </StaggerItem>
+          <StaggerItem>
+            <Endpoint
+              method="GET"
+              path="/api/notes"
+              url="https://api-238849700424.europe-west1.run.app/notes"
+              description="Hent notater (krever token)"
+            />
+          </StaggerItem>
+          <StaggerItem>
+            <Endpoint
+              method="POST"
+              path="/api/notes"
+              url="https://api-238849700424.europe-west1.run.app/notes"
+              description="Opprett notat (krever token)"
+            />
+          </StaggerItem>
+        </StaggerList>
       </div>
     </div>
   );
@@ -331,7 +359,7 @@ function Endpoint({
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-4 rounded-lg border border-border/50 bg-card/50 px-4 py-3 transition-colors hover:bg-accent/50"
+      className="flex items-center gap-4 rounded-lg border border-border/50 bg-card/50 px-4 py-3 transition-all hover:bg-accent/50 hover:shadow-sm active:scale-[0.99]"
     >
       <Badge variant="secondary" className="font-mono text-xs">
         {method}
