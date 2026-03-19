@@ -1,9 +1,71 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Åpent for utvikling — stram inn før prod
-    match /{document=**} {
-      allow read, write: if true;
+
+    // ─── Hjelpefunksjoner ───────────────────────────────────────────────────────
+
+    function erAutentisert() {
+      return request.auth != null;
+    }
+
+    function erEier(uid) {
+      return erAutentisert() && request.auth.uid == uid;
+    }
+
+    function erAdmin() {
+      return erAutentisert() && request.auth.token.admin == true;
+    }
+
+    // ─── Abonnementer ────────────────────────────────────────────────────────────
+    match /subscriptions/{uid} {
+      allow read: if erEier(uid);
+      allow write: if erAdmin(); // Kun Cloud Functions (admin SDK) skriver
+    }
+
+    // ─── API-nøkler ──────────────────────────────────────────────────────────────
+    match /apiKeys/{keyId} {
+      allow read: if erAutentisert() && resource.data.userId == request.auth.uid;
+      allow write: if erAdmin();
+    }
+
+    // ─── Feature flags (offentlig lesing) ───────────────────────────────────────
+    match /featureFlags/{flagId} {
+      allow read: if true;
+      allow write: if erAdmin();
+    }
+
+    // ─── Notater ─────────────────────────────────────────────────────────────────
+    match /notes/{noteId} {
+      allow read: if erAutentisert() && resource.data.userId == request.auth.uid;
+      allow create: if erAutentisert() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if erAutentisert() && resource.data.userId == request.auth.uid;
+    }
+
+    // ─── Brukerdata (isolert per bruker) ────────────────────────────────────────
+    match /users/{uid} {
+      allow read, write: if erEier(uid);
+
+      // Klienter
+      match /klienter/{klientId} {
+        allow read, write: if erEier(uid);
+      }
+
+      // Bilag og posteringer
+      match /bilag/{bilagId} {
+        allow read, write: if erEier(uid);
+      }
+
+      // Revisjonslogg — kun lesing for bruker, Cloud Functions kan skrive
+      match /audit_log/{logId} {
+        allow read: if erEier(uid);
+        allow create: if erEier(uid); // Klient skriver via audit.ts
+        allow update, delete: if false; // Immutable
+      }
+
+      // Kontoplan (bruker-tilpasset)
+      match /kontoplan/{kontoId} {
+        allow read, write: if erEier(uid);
+      }
     }
   }
 }

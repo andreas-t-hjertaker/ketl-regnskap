@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
+import { useBilag } from "@/hooks/use-bilag";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -10,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   TrendingUp,
   TrendingDown,
@@ -18,7 +20,6 @@ import {
   Bot,
   CheckCircle2,
   Clock,
-  FileText,
   BarChart3,
 } from "lucide-react";
 import {
@@ -27,102 +28,6 @@ import {
   StaggerItem,
   AnimatedCounter,
 } from "@/components/motion";
-import type { AgentAktivitet } from "@/types";
-
-// Demo-data
-const kpiData = [
-  {
-    label: "Omsetning (mars)",
-    value: 485000,
-    format: "nok",
-    icon: TrendingUp,
-    trend: "+12% vs. forrige måned",
-    trendUp: true,
-  },
-  {
-    label: "Kostnader (mars)",
-    value: 312400,
-    format: "nok",
-    icon: TrendingDown,
-    trend: "+3% vs. forrige måned",
-    trendUp: false,
-  },
-  {
-    label: "Resultat (mars)",
-    value: 172600,
-    format: "nok",
-    icon: BarChart3,
-    trend: "+28% vs. forrige måned",
-    trendUp: true,
-  },
-  {
-    label: "Ubehandlede bilag",
-    value: 7,
-    format: "count",
-    icon: AlertCircle,
-    trend: "Trenger gjennomgang",
-    trendUp: false,
-  },
-];
-
-const agentAktiviteter: AgentAktivitet[] = [
-  {
-    type: "bokføring",
-    beskrivelse: "Bokførte faktura fra Telenor AS — 3 240 kr inkl. MVA",
-    tidspunkt: new Date("2026-03-19T09:15:00"),
-    klientId: "klient-1",
-    bilagId: "bilag-42",
-  },
-  {
-    type: "forslag",
-    beskrivelse: "Foreslår konto 6540 for reiseutgift fra Ruter AS",
-    tidspunkt: new Date("2026-03-19T08:47:00"),
-    klientId: "klient-1",
-    bilagId: "bilag-43",
-  },
-  {
-    type: "rapport",
-    beskrivelse: "Genererte MVA-rapport for periode 2026-02",
-    tidspunkt: new Date("2026-03-18T16:30:00"),
-    klientId: "klient-1",
-  },
-  {
-    type: "bokføring",
-    beskrivelse: "Bokførte 4 bilag fra Elgiganten — total 18 750 kr",
-    tidspunkt: new Date("2026-03-18T14:20:00"),
-    klientId: "klient-2",
-  },
-  {
-    type: "avstemming",
-    beskrivelse: "Bankkontoavstemming fullført for mars — 0 differanser",
-    tidspunkt: new Date("2026-03-17T11:05:00"),
-    klientId: "klient-1",
-  },
-];
-
-const ubehandledeBilag = [
-  {
-    bilagsnr: 1043,
-    beskrivelse: "Faktura — Adobe Inc.",
-    belop: 1890,
-    dato: "2026-03-18",
-    leverandor: "Adobe Inc.",
-  },
-  {
-    bilagsnr: 1044,
-    beskrivelse: "Kvittering — Kiwi 1204",
-    belop: 347,
-    dato: "2026-03-18",
-    leverandor: "Kiwi",
-  },
-  {
-    bilagsnr: 1045,
-    beskrivelse: "Faktura — Nettleie mars",
-    belop: 2140,
-    dato: "2026-03-17",
-    leverandor: "Hafslund Nett",
-  },
-];
 
 function formatNOK(value: number) {
   return new Intl.NumberFormat("nb-NO", {
@@ -133,38 +38,39 @@ function formatNOK(value: number) {
   }).format(value);
 }
 
-function aktivitetIkon(type: AgentAktivitet["type"]) {
-  const icons = {
-    bokføring: CheckCircle2,
-    forslag: Bot,
-    rapport: FileText,
-    epost: FileText,
-    avstemming: BarChart3,
-  };
-  return icons[type] ?? Bot;
-}
-
-function aktivitetFarge(type: AgentAktivitet["type"]) {
-  const farger = {
-    bokføring: "text-green-500",
-    forslag: "text-blue-500",
-    rapport: "text-purple-500",
-    epost: "text-orange-500",
-    avstemming: "text-teal-500",
-  };
-  return farger[type] ?? "text-muted-foreground";
-}
-
-function tidSiden(dato: Date) {
-  const diff = Math.floor((Date.now() - dato.getTime()) / 60000);
+function tidSiden(dato: unknown): string {
+  if (!dato) return "ukjent";
+  const d = dato instanceof Date ? dato : new Date((dato as { seconds: number }).seconds * 1000);
+  const diff = Math.floor((Date.now() - d.getTime()) / 60000);
   if (diff < 60) return `${diff} min siden`;
   const timer = Math.floor(diff / 60);
   if (timer < 24) return `${timer}t siden`;
   return `${Math.floor(timer / 24)}d siden`;
 }
 
+function beregnInntektOgKostnad(bilag: ReturnType<typeof useBilag>["bilag"]) {
+  let inntekter = 0;
+  let kostnader = 0;
+
+  for (const b of bilag) {
+    if (b.status !== "bokført") continue;
+    for (const p of b.posteringer) {
+      const klasse = p.kontonr[0];
+      if (klasse === "3") inntekter += p.kredit - p.debet;
+      if (klasse >= "4" && klasse <= "8") kostnader += p.debet - p.kredit;
+    }
+  }
+
+  return { inntekter: Math.abs(inntekter), kostnader: Math.abs(kostnader) };
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { bilag, loading } = useBilag(user?.uid ?? null);
+
+  const inntektKostnad = beregnInntektOgKostnad(bilag);
+  const ubehandledeBilag = bilag.filter((b) => b.status === "ubehandlet").slice(0, 5);
+  const antallUbehandlet = bilag.filter((b) => b.status === "ubehandlet").length;
 
   return (
     <div className="space-y-8">
@@ -175,74 +81,145 @@ export default function DashboardPage() {
             God morgen{user?.displayName ? `, ${user.displayName}` : ""}
           </h1>
           <p className="text-muted-foreground">
-            Her er regnskapsoversikten din for mars 2026.
+            Her er regnskapsoversikten din.
           </p>
         </div>
       </SlideIn>
 
       {/* KPI-kort */}
-      <StaggerList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" staggerDelay={0.08}>
-        {kpiData.map((kpi) => (
-          <StaggerItem key={kpi.label}>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardDescription className="text-xs font-medium uppercase tracking-wide">
-                  {kpi.label}
-                </CardDescription>
-                <kpi.icon
-                  className={`h-4 w-4 ${kpi.trendUp ? "text-green-500" : kpi.label === "Ubehandlede bilag" ? "text-orange-500" : "text-red-500"}`}
-                />
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <Skeleton className="h-3 w-24" />
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold">
-                  {kpi.format === "nok" ? (
-                    formatNOK(kpi.value)
-                  ) : (
-                    <AnimatedCounter value={kpi.value} />
-                  )}
-                </p>
-                <p className={`mt-1 text-xs ${kpi.trendUp ? "text-green-600" : "text-muted-foreground"}`}>
-                  {kpi.trend}
-                </p>
+                <Skeleton className="h-8 w-28" />
+                <Skeleton className="h-3 w-36 mt-2" />
               </CardContent>
             </Card>
-          </StaggerItem>
-        ))}
-      </StaggerList>
+          ))}
+        </div>
+      ) : (
+        <StaggerList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" staggerDelay={0.08}>
+          {[
+            {
+              label: "Omsetning (bokført)",
+              value: inntektKostnad.inntekter,
+              format: "nok" as const,
+              icon: TrendingUp,
+              trend: `Fra ${bilag.filter(b => b.status === "bokført").length} bokførte bilag`,
+              trendUp: true,
+            },
+            {
+              label: "Kostnader (bokført)",
+              value: inntektKostnad.kostnader,
+              format: "nok" as const,
+              icon: TrendingDown,
+              trend: "Driftskostnader",
+              trendUp: false,
+            },
+            {
+              label: "Resultat",
+              value: inntektKostnad.inntekter - inntektKostnad.kostnader,
+              format: "nok" as const,
+              icon: BarChart3,
+              trend: inntektKostnad.inntekter - inntektKostnad.kostnader >= 0 ? "Positivt resultat" : "Negativt resultat",
+              trendUp: inntektKostnad.inntekter - inntektKostnad.kostnader >= 0,
+            },
+            {
+              label: "Ubehandlede bilag",
+              value: antallUbehandlet,
+              format: "count" as const,
+              icon: AlertCircle,
+              trend: antallUbehandlet > 0 ? "Trenger gjennomgang" : "Alle bilag behandlet",
+              trendUp: antallUbehandlet === 0,
+            },
+          ].map((kpi) => (
+            <StaggerItem key={kpi.label}>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardDescription className="text-xs font-medium uppercase tracking-wide">
+                    {kpi.label}
+                  </CardDescription>
+                  <kpi.icon
+                    className={`h-4 w-4 ${kpi.trendUp ? "text-green-500" : kpi.label === "Ubehandlede bilag" ? "text-orange-500" : "text-red-500"}`}
+                  />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">
+                    {kpi.format === "nok" ? (
+                      formatNOK(kpi.value)
+                    ) : (
+                      <AnimatedCounter value={kpi.value} />
+                    )}
+                  </p>
+                  <p className={`mt-1 text-xs ${kpi.trendUp ? "text-green-600" : "text-muted-foreground"}`}>
+                    {kpi.trend}
+                  </p>
+                </CardContent>
+              </Card>
+            </StaggerItem>
+          ))}
+        </StaggerList>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Siste aktivitet */}
+        {/* Siste bilag */}
         <div>
           <SlideIn direction="up" delay={0.1}>
             <div className="mb-4 flex items-center gap-3">
-              <h2 className="text-lg font-semibold">Siste aktivitet</h2>
+              <h2 className="text-lg font-semibold">Siste bilag</h2>
               <Badge variant="outline" className="font-mono text-xs">
-                <Bot className="mr-1.5 h-3 w-3" />
-                AI-agent
+                <Receipt className="mr-1.5 h-3 w-3" />
+                {bilag.length} totalt
               </Badge>
             </div>
           </SlideIn>
-          <StaggerList className="space-y-3" staggerDelay={0.06} initialDelay={0.15}>
-            {agentAktiviteter.map((a, i) => {
-              const Ikon = aktivitetIkon(a.type);
-              return (
-                <StaggerItem key={i}>
-                  <div className="flex items-start gap-3 rounded-lg border border-border/50 bg-card/50 px-4 py-3">
-                    <Ikon
-                      className={`mt-0.5 h-4 w-4 shrink-0 ${aktivitetFarge(a.type)}`}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm">{a.beskrivelse}</p>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                      <Clock className="h-3 w-3" />
-                      {tidSiden(a.tidspunkt)}
-                    </div>
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-3 rounded-lg border border-border/50 px-4 py-3">
+                  <Skeleton className="h-4 w-4 shrink-0" />
+                  <div className="flex-1 space-y-1">
+                    <Skeleton className="h-3 w-40" />
+                    <Skeleton className="h-3 w-24" />
                   </div>
-                </StaggerItem>
-              );
-            })}
-          </StaggerList>
+                  <Skeleton className="h-3 w-16 shrink-0" />
+                </div>
+              ))}
+            </div>
+          ) : bilag.length === 0 ? (
+            <div className="rounded-lg border border-border/40 py-8 text-center text-muted-foreground">
+              <Receipt className="mx-auto mb-2 h-6 w-6 opacity-40" />
+              <p className="text-sm">Ingen bilag ennå. Last opp en kvittering for å komme i gang.</p>
+            </div>
+          ) : (
+            <StaggerList className="space-y-3" staggerDelay={0.06} initialDelay={0.15}>
+              {bilag.slice(0, 5).map((b) => {
+                const statusFarger: Record<typeof b.status, string> = {
+                  bokført: "text-green-500",
+                  foreslått: "text-blue-500",
+                  ubehandlet: "text-orange-500",
+                  avvist: "text-destructive",
+                };
+                const StatusIkon = { bokført: CheckCircle2, foreslått: Bot, ubehandlet: Clock, avvist: AlertCircle }[b.status];
+                return (
+                  <StaggerItem key={b.id}>
+                    <div className="flex items-start gap-3 rounded-lg border border-border/50 bg-card/50 px-4 py-3">
+                      <StatusIkon className={`mt-0.5 h-4 w-4 shrink-0 ${statusFarger[b.status]}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{b.beskrivelse}</p>
+                        <p className="text-xs text-muted-foreground">{b.leverandor ?? "—"} · {b.dato}</p>
+                      </div>
+                      <div className="text-sm font-medium shrink-0">{formatNOK(b.belop)}</div>
+                    </div>
+                  </StaggerItem>
+                );
+              })}
+            </StaggerList>
+          )}
         </div>
 
         {/* Bilag som trenger oppmerksomhet */}
@@ -251,77 +228,101 @@ export default function DashboardPage() {
             <div className="mb-4 flex items-center gap-3">
               <h2 className="text-lg font-semibold">Trenger oppmerksomhet</h2>
               <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/30 font-mono text-xs">
-                {ubehandledeBilag.length} ubehandlet
+                {antallUbehandlet} ubehandlet
               </Badge>
             </div>
           </SlideIn>
-          <StaggerList className="space-y-3" staggerDelay={0.06} initialDelay={0.15}>
-            {ubehandledeBilag.map((b) => (
-              <StaggerItem key={b.bilagsnr}>
-                <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 px-4 py-3">
-                  <Receipt className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{b.beskrivelse}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {b.leverandor} · {b.dato}
-                    </p>
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-3 rounded-lg border border-border/50 px-4 py-3">
+                  <Skeleton className="h-4 w-4 shrink-0" />
+                  <div className="flex-1 space-y-1">
+                    <Skeleton className="h-3 w-40" />
+                    <Skeleton className="h-3 w-24" />
                   </div>
-                  <div className="text-sm font-medium shrink-0">
-                    {formatNOK(b.belop)}
-                  </div>
+                  <Skeleton className="h-3 w-16 shrink-0" />
                 </div>
-              </StaggerItem>
-            ))}
-          </StaggerList>
-          <SlideIn direction="up" delay={0.3}>
-            <p className="mt-3 text-xs text-muted-foreground">
-              + 4 flere bilag venter på bokføring.{" "}
-              <a href="/dashboard/bilag" className="text-primary underline-offset-4 hover:underline">
-                Se alle bilag →
-              </a>
-            </p>
-          </SlideIn>
+              ))}
+            </div>
+          ) : ubehandledeBilag.length === 0 ? (
+            <div className="rounded-lg border border-green-500/20 bg-green-500/5 py-8 text-center text-muted-foreground">
+              <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-green-500 opacity-80" />
+              <p className="text-sm font-medium text-green-700 dark:text-green-400">Alt er behandlet!</p>
+              <p className="text-xs mt-1">Ingen bilag venter på bokføring.</p>
+            </div>
+          ) : (
+            <>
+              <StaggerList className="space-y-3" staggerDelay={0.06} initialDelay={0.15}>
+                {ubehandledeBilag.map((b) => (
+                  <StaggerItem key={b.id}>
+                    <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 px-4 py-3">
+                      <Receipt className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{b.beskrivelse}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {b.leverandor ?? "—"} · {b.dato}
+                        </p>
+                      </div>
+                      <div className="text-sm font-medium shrink-0">
+                        {formatNOK(b.belop)}
+                      </div>
+                    </div>
+                  </StaggerItem>
+                ))}
+              </StaggerList>
+              {antallUbehandlet > 5 && (
+                <SlideIn direction="up" delay={0.3}>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    + {antallUbehandlet - 5} flere bilag venter.{" "}
+                    <a href="/dashboard/bilag" className="text-primary underline-offset-4 hover:underline">
+                      Se alle bilag →
+                    </a>
+                  </p>
+                </SlideIn>
+              )}
+            </>
+          )}
         </div>
       </div>
 
-      <Separator />
-
-      {/* Månedsoversikt */}
-      <div>
-        <SlideIn direction="up" delay={0.1}>
-          <h2 className="mb-4 text-lg font-semibold">Månedsoversikt 2026</h2>
-        </SlideIn>
-        <StaggerList className="grid gap-3 sm:grid-cols-3" staggerDelay={0.05} initialDelay={0.15}>
-          {[
-            { periode: "Januar", inntekter: 410000, kostnader: 298000, bilag: 34 },
-            { periode: "Februar", inntekter: 432000, kostnader: 303000, bilag: 29 },
-            { periode: "Mars", inntekter: 485000, kostnader: 312400, bilag: 38 },
-          ].map((m) => (
-            <StaggerItem key={m.periode}>
-              <Card className="border-border/50 bg-card/50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{m.periode}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Inntekter</span>
-                    <span className="text-green-600 font-medium">{formatNOK(m.inntekter)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Kostnader</span>
-                    <span className="text-red-500 font-medium">{formatNOK(m.kostnader)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm border-t border-border/40 pt-1 mt-1">
-                    <span className="font-medium">Resultat</span>
-                    <span className="font-bold">{formatNOK(m.inntekter - m.kostnader)}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">{m.bilag} bilag behandlet</p>
-                </CardContent>
-              </Card>
-            </StaggerItem>
-          ))}
-        </StaggerList>
-      </div>
+      {!loading && bilag.length > 0 && (
+        <>
+          <Separator />
+          {/* Månedsoversikt */}
+          <div>
+            <SlideIn direction="up" delay={0.1}>
+              <h2 className="mb-4 text-lg font-semibold">Bilag-oversikt per status</h2>
+            </SlideIn>
+            <StaggerList className="grid gap-3 sm:grid-cols-4" staggerDelay={0.05} initialDelay={0.15}>
+              {(["ubehandlet", "foreslått", "bokført", "avvist"] as const).map((status) => {
+                const antall = bilag.filter(b => b.status === status).length;
+                const totalBelop = bilag.filter(b => b.status === status).reduce((s, b) => s + b.belop, 0);
+                const farger: Record<typeof status, string> = {
+                  ubehandlet: "text-orange-500",
+                  foreslått: "text-blue-500",
+                  bokført: "text-green-500",
+                  avvist: "text-destructive",
+                };
+                const label = { ubehandlet: "Ubehandlet", foreslått: "AI-forslag", bokført: "Bokført", avvist: "Avvist" }[status];
+                return (
+                  <StaggerItem key={status}>
+                    <Card className="border-border/50 bg-card/50">
+                      <CardHeader className="pb-2">
+                        <CardTitle className={`text-sm font-medium ${farger[status]}`}>{label}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-1">
+                        <p className="text-2xl font-bold">{antall}</p>
+                        <p className="text-xs text-muted-foreground">{formatNOK(totalBelop)} totalt</p>
+                      </CardContent>
+                    </Card>
+                  </StaggerItem>
+                );
+              })}
+            </StaggerList>
+          </div>
+        </>
+      )}
     </div>
   );
 }
