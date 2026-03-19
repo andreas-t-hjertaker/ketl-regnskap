@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   FileBarChart,
   Download,
@@ -20,8 +21,10 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
+import { useAuth } from "@/hooks/use-auth";
+import { useRapporter } from "@/hooks/use-rapporter";
 
-type Periode = "2026-01" | "2026-02" | "2026-03" | "2026";
+type Fane = "resultat" | "balanse" | "mva" | "saft";
 
 function formatNOK(value: number) {
   return new Intl.NumberFormat("nb-NO", {
@@ -32,121 +35,24 @@ function formatNOK(value: number) {
   }).format(value);
 }
 
-// Demo-data
-const resultatregnskap: Record<Periode, {
-  driftsinntekter: { konto: string; navn: string; belop: number }[];
-  driftskostnader: { konto: string; navn: string; belop: number }[];
-}> = {
-  "2026-01": {
-    driftsinntekter: [
-      { konto: "3000", navn: "Salgsinntekter, avgiftspliktig", belop: 380000 },
-      { konto: "3100", navn: "Salgsinntekter, avgiftsfri", belop: 30000 },
-    ],
-    driftskostnader: [
-      { konto: "5000", navn: "Lønnskostnader", belop: 185000 },
-      { konto: "6000", navn: "Avskrivninger", belop: 15000 },
-      { konto: "6860", navn: "Programvare og lisenser", belop: 12000 },
-      { konto: "6900", navn: "Telekommunikasjon", belop: 8400 },
-      { konto: "6730", navn: "Strøm og oppvarming", belop: 6800 },
-      { konto: "7000", navn: "Driftsmateriell", belop: 4200 },
-      { konto: "7100", navn: "Frakt og transport", belop: 2800 },
-      { konto: "7320", navn: "Revisor og regnskapshjelp", belop: 18000 },
-      { konto: "7770", navn: "Bank- og finanskostnader", belop: 1800 },
-    ],
-  },
-  "2026-02": {
-    driftsinntekter: [
-      { konto: "3000", navn: "Salgsinntekter, avgiftspliktig", belop: 400000 },
-      { konto: "3100", navn: "Salgsinntekter, avgiftsfri", belop: 32000 },
-    ],
-    driftskostnader: [
-      { konto: "5000", navn: "Lønnskostnader", belop: 185000 },
-      { konto: "6000", navn: "Avskrivninger", belop: 15000 },
-      { konto: "6860", navn: "Programvare og lisenser", belop: 13400 },
-      { konto: "6900", navn: "Telekommunikasjon", belop: 8400 },
-      { konto: "6730", navn: "Strøm og oppvarming", belop: 5200 },
-      { konto: "7000", navn: "Driftsmateriell", belop: 3800 },
-      { konto: "7100", navn: "Frakt og transport", belop: 2600 },
-      { konto: "7320", navn: "Revisor og regnskapshjelp", belop: 18000 },
-      { konto: "7770", navn: "Bank- og finanskostnader", belop: 1600 },
-    ],
-  },
-  "2026-03": {
-    driftsinntekter: [
-      { konto: "3000", navn: "Salgsinntekter, avgiftspliktig", belop: 450000 },
-      { konto: "3100", navn: "Salgsinntekter, avgiftsfri", belop: 35000 },
-    ],
-    driftskostnader: [
-      { konto: "5000", navn: "Lønnskostnader", belop: 192000 },
-      { konto: "6000", navn: "Avskrivninger", belop: 15000 },
-      { konto: "6860", navn: "Programvare og lisenser", belop: 14200 },
-      { konto: "6900", navn: "Telekommunikasjon", belop: 8400 },
-      { konto: "6730", navn: "Strøm og oppvarming", belop: 4180 },
-      { konto: "7000", navn: "Driftsmateriell", belop: 3800 },
-      { konto: "7100", navn: "Frakt og transport", belop: 3100 },
-      { konto: "7320", navn: "Revisor og regnskapshjelp", belop: 18000 },
-      { konto: "7770", navn: "Bank- og finanskostnader", belop: 1720 },
-    ],
-  },
-  "2026": {
-    driftsinntekter: [
-      { konto: "3000", navn: "Salgsinntekter, avgiftspliktig", belop: 1230000 },
-      { konto: "3100", navn: "Salgsinntekter, avgiftsfri", belop: 97000 },
-    ],
-    driftskostnader: [
-      { konto: "5000", navn: "Lønnskostnader", belop: 562000 },
-      { konto: "6000", navn: "Avskrivninger", belop: 45000 },
-      { konto: "6860", navn: "Programvare og lisenser", belop: 39600 },
-      { konto: "6900", navn: "Telekommunikasjon", belop: 25200 },
-      { konto: "6730", navn: "Strøm og oppvarming", belop: 16180 },
-      { konto: "7000", navn: "Driftsmateriell", belop: 11800 },
-      { konto: "7100", navn: "Frakt og transport", belop: 8500 },
-      { konto: "7320", navn: "Revisor og regnskapshjelp", belop: 54000 },
-      { konto: "7770", navn: "Bank- og finanskostnader", belop: 5120 },
-    ],
-  },
-};
-
-const periodeLabels: Record<Periode, string> = {
-  "2026-01": "Januar 2026",
-  "2026-02": "Februar 2026",
-  "2026-03": "Mars 2026",
-  "2026": "Hele 2026",
-};
-
-const mvaData = [
-  { periode: "Termin 1 (jan–feb)", utgåendeMva: 107000, inngåendeMva: 43400, å_betale: 63600, status: "levert" },
-  { periode: "Termin 2 (mar–apr)", utgåendeMva: 112500, inngåendeMva: 38200, å_betale: 74300, status: "utkast" },
+const periodeAlternativer = [
+  { key: "2026-01", label: "Januar 2026" },
+  { key: "2026-02", label: "Februar 2026" },
+  { key: "2026-03", label: "Mars 2026" },
+  { key: "2026", label: "Hele 2026" },
+  { key: "alt", label: "Alle perioder" },
 ];
 
-const balanseData = {
-  eiendeler: [
-    { konto: "1200", navn: "Maskiner og inventar", belop: 240000 },
-    { konto: "1500", navn: "Kundefordringer", belop: 185000 },
-    { konto: "1900", navn: "Bankinnskudd", belop: 842000 },
-    { konto: "1940", navn: "Skattetrekkskonto", belop: 95000 },
-  ],
-  gjeldOgEgenkapital: [
-    { konto: "2000", navn: "Aksjekapital", belop: 100000 },
-    { konto: "2050", navn: "Annen egenkapital", belop: 640000 },
-    { konto: "2400", navn: "Leverandørgjeld", belop: 198000 },
-    { konto: "2600", navn: "Skattetrekk og arbeidsgiveravgift", belop: 95000 },
-    { konto: "2700", navn: "Skyldig MVA", belop: 74300 },
-    { konto: "2800", navn: "Annen kortsiktig gjeld", belop: 254700 },
-  ],
-};
-
 export default function RapporterPage() {
-  const [valgtPeriode, setValgtPeriode] = useState<Periode>("2026-03");
-  const [aktivFane, setAktivFane] = useState<"resultat" | "balanse" | "mva" | "saft">("resultat");
+  const { user } = useAuth();
+  const { loading, resultatForPeriode, balanse, mvaTerminer } = useRapporter(
+    user?.uid ?? null
+  );
+  const [valgtPeriode, setValgtPeriode] = useState("2026-03");
+  const [aktivFane, setAktivFane] = useState<Fane>("resultat");
 
-  const data = resultatregnskap[valgtPeriode];
-  const totalInntekter = data.driftsinntekter.reduce((s, r) => s + r.belop, 0);
-  const totalKostnader = data.driftskostnader.reduce((s, r) => s + r.belop, 0);
-  const resultat = totalInntekter - totalKostnader;
-
-  const totalEiendeler = balanseData.eiendeler.reduce((s, r) => s + r.belop, 0);
-  const totalGjeld = balanseData.gjeldOgEgenkapital.reduce((s, r) => s + r.belop, 0);
+  const resultat = resultatForPeriode(valgtPeriode);
+  const ingenData = resultat.driftsinntekter.length === 0 && resultat.driftskostnader.length === 0;
 
   return (
     <div className="space-y-6">
@@ -159,7 +65,7 @@ export default function RapporterPage() {
               Resultatregnskap, balanse, MVA-rapport og SAF-T-eksport.
             </p>
           </div>
-          <Button variant="outline">
+          <Button variant="outline" disabled>
             <Download className="mr-2 h-4 w-4" />
             Eksporter
           </Button>
@@ -169,14 +75,14 @@ export default function RapporterPage() {
       {/* Periodevalgknapper */}
       <SlideIn direction="up" delay={0.1}>
         <div className="flex flex-wrap gap-2">
-          {(Object.keys(periodeLabels) as Periode[]).map((p) => (
+          {periodeAlternativer.map((p) => (
             <Button
-              key={p}
-              variant={valgtPeriode === p ? "default" : "outline"}
+              key={p.key}
+              variant={valgtPeriode === p.key ? "default" : "outline"}
               size="sm"
-              onClick={() => setValgtPeriode(p)}
+              onClick={() => setValgtPeriode(p.key)}
             >
-              {periodeLabels[p]}
+              {p.label}
             </Button>
           ))}
         </div>
@@ -186,10 +92,10 @@ export default function RapporterPage() {
       <SlideIn direction="up" delay={0.15}>
         <div className="flex gap-1 rounded-lg border border-border/50 p-1 w-fit">
           {[
-            { id: "resultat" as const, label: "Resultatregnskap", icon: TrendingUp },
-            { id: "balanse" as const, label: "Balanse", icon: BarChart3 },
-            { id: "mva" as const, label: "MVA-rapport", icon: FileText },
-            { id: "saft" as const, label: "SAF-T", icon: FileBarChart },
+            { id: "resultat" as Fane, label: "Resultatregnskap", icon: TrendingUp },
+            { id: "balanse" as Fane, label: "Balanse", icon: BarChart3 },
+            { id: "mva" as Fane, label: "MVA-rapport", icon: FileText },
+            { id: "saft" as Fane, label: "SAF-T", icon: FileBarChart },
           ].map((fane) => (
             <Button
               key={fane.id}
@@ -205,216 +111,261 @@ export default function RapporterPage() {
         </div>
       </SlideIn>
 
-      {/* Resultatregnskap */}
-      {aktivFane === "resultat" && (
+      {/* Laste-tilstand */}
+      {loading && (
         <div className="space-y-4">
-          {/* Sammendrag */}
-          <StaggerList className="grid gap-4 sm:grid-cols-3" staggerDelay={0.07}>
-            {[
-              { label: "Driftsinntekter", value: totalInntekter, icon: TrendingUp, color: "text-green-500" },
-              { label: "Driftskostnader", value: totalKostnader, icon: TrendingDown, color: "text-red-500" },
-              { label: "Driftsresultat", value: resultat, icon: BarChart3, color: resultat > 0 ? "text-green-600" : "text-red-500" },
-            ].map((stat) => (
-              <StaggerItem key={stat.label}>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardHeader className="pb-2">
+                  <Skeleton className="h-3 w-24" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-32" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Card>
+            <CardContent className="p-6 space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-8 w-full" />)}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Resultatregnskap */}
+      {!loading && aktivFane === "resultat" && (
+        <div className="space-y-4">
+          {ingenData ? (
+            <SlideIn direction="up">
+              <div className="rounded-xl border border-border/40 py-16 text-center text-muted-foreground">
+                <BarChart3 className="mx-auto mb-3 h-8 w-8 opacity-40" />
+                <p className="text-sm font-medium">Ingen data for valgt periode</p>
+                <p className="text-xs mt-1">Bokfør bilag for å se resultatregnskap.</p>
+              </div>
+            </SlideIn>
+          ) : (
+            <>
+              {/* Sammendrag */}
+              <StaggerList className="grid gap-4 sm:grid-cols-3" staggerDelay={0.07}>
+                {[
+                  { label: "Driftsinntekter", value: resultat.totalInntekter, icon: TrendingUp, color: "text-green-500" },
+                  { label: "Driftskostnader", value: resultat.totalKostnader, icon: TrendingDown, color: "text-red-500" },
+                  { label: "Driftsresultat", value: resultat.resultat, icon: BarChart3, color: resultat.resultat > 0 ? "text-green-600" : "text-red-500" },
+                ].map((stat) => (
+                  <StaggerItem key={stat.label}>
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardDescription className="text-xs font-medium uppercase tracking-wide">
+                          {stat.label}
+                        </CardDescription>
+                        <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                      </CardHeader>
+                      <CardContent>
+                        <p className={`text-2xl font-bold ${stat.color}`}>
+                          {formatNOK(stat.value)}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </StaggerItem>
+                ))}
+              </StaggerList>
+
+              {/* Detaljert tabell */}
+              <SlideIn direction="up" delay={0.2}>
                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardDescription className="text-xs font-medium uppercase tracking-wide">
-                      {stat.label}
-                    </CardDescription>
-                    <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                  <CardHeader>
+                    <CardTitle className="text-base">
+                      Resultatregnskap — {periodeAlternativer.find(p => p.key === valgtPeriode)?.label}
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <p className={`text-2xl font-bold ${stat.color}`}>
-                      {formatNOK(stat.value)}
-                    </p>
+                  <CardContent className="p-0">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium text-muted-foreground">Konto</th>
+                          <th className="px-4 py-3 text-left font-medium text-muted-foreground">Navn</th>
+                          <th className="px-4 py-3 text-right font-medium text-muted-foreground">Beløp</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td colSpan={3} className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground bg-muted/30">
+                            Driftsinntekter
+                          </td>
+                        </tr>
+                        {resultat.driftsinntekter.map((r) => (
+                          <tr key={r.konto} className="border-t border-border/30">
+                            <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{r.konto}</td>
+                            <td className="px-4 py-2">{r.navn}</td>
+                            <td className="px-4 py-2 text-right font-medium text-green-600">{formatNOK(r.belop)}</td>
+                          </tr>
+                        ))}
+                        <tr className="border-t border-border bg-muted/20">
+                          <td className="px-4 py-2 font-mono text-xs"></td>
+                          <td className="px-4 py-2 font-semibold">Sum driftsinntekter</td>
+                          <td className="px-4 py-2 text-right font-bold text-green-600">{formatNOK(resultat.totalInntekter)}</td>
+                        </tr>
+                        <tr>
+                          <td colSpan={3} className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground bg-muted/30">
+                            Driftskostnader
+                          </td>
+                        </tr>
+                        {resultat.driftskostnader.map((r) => (
+                          <tr key={r.konto} className="border-t border-border/30">
+                            <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{r.konto}</td>
+                            <td className="px-4 py-2">{r.navn}</td>
+                            <td className="px-4 py-2 text-right font-medium text-red-500">{formatNOK(r.belop)}</td>
+                          </tr>
+                        ))}
+                        <tr className="border-t border-border bg-muted/20">
+                          <td className="px-4 py-2 font-mono text-xs"></td>
+                          <td className="px-4 py-2 font-semibold">Sum driftskostnader</td>
+                          <td className="px-4 py-2 text-right font-bold text-red-500">{formatNOK(resultat.totalKostnader)}</td>
+                        </tr>
+                        <tr className="border-t-2 border-border">
+                          <td className="px-4 py-3 font-mono text-xs"></td>
+                          <td className="px-4 py-3 font-bold text-base">Driftsresultat</td>
+                          <td className={`px-4 py-3 text-right font-bold text-base ${resultat.resultat > 0 ? "text-green-600" : "text-red-500"}`}>
+                            {formatNOK(resultat.resultat)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </CardContent>
                 </Card>
-              </StaggerItem>
-            ))}
-          </StaggerList>
-
-          {/* Detaljert tabell */}
-          <SlideIn direction="up" delay={0.2}>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  Resultatregnskap — {periodeLabels[valgtPeriode]}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Konto</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Navn</th>
-                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">Beløp</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td colSpan={3} className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground bg-muted/30">
-                        Driftsinntekter
-                      </td>
-                    </tr>
-                    {data.driftsinntekter.map((r) => (
-                      <tr key={r.konto} className="border-t border-border/30">
-                        <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{r.konto}</td>
-                        <td className="px-4 py-2">{r.navn}</td>
-                        <td className="px-4 py-2 text-right font-medium text-green-600">{formatNOK(r.belop)}</td>
-                      </tr>
-                    ))}
-                    <tr className="border-t border-border bg-muted/20">
-                      <td className="px-4 py-2 font-mono text-xs"></td>
-                      <td className="px-4 py-2 font-semibold">Sum driftsinntekter</td>
-                      <td className="px-4 py-2 text-right font-bold text-green-600">{formatNOK(totalInntekter)}</td>
-                    </tr>
-                    <tr>
-                      <td colSpan={3} className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground bg-muted/30">
-                        Driftskostnader
-                      </td>
-                    </tr>
-                    {data.driftskostnader.map((r) => (
-                      <tr key={r.konto} className="border-t border-border/30">
-                        <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{r.konto}</td>
-                        <td className="px-4 py-2">{r.navn}</td>
-                        <td className="px-4 py-2 text-right font-medium text-red-500">{formatNOK(r.belop)}</td>
-                      </tr>
-                    ))}
-                    <tr className="border-t border-border bg-muted/20">
-                      <td className="px-4 py-2 font-mono text-xs"></td>
-                      <td className="px-4 py-2 font-semibold">Sum driftskostnader</td>
-                      <td className="px-4 py-2 text-right font-bold text-red-500">{formatNOK(totalKostnader)}</td>
-                    </tr>
-                    <tr className="border-t-2 border-border">
-                      <td className="px-4 py-3 font-mono text-xs"></td>
-                      <td className="px-4 py-3 font-bold text-base">Driftsresultat</td>
-                      <td className={`px-4 py-3 text-right font-bold text-base ${resultat > 0 ? "text-green-600" : "text-red-500"}`}>
-                        {formatNOK(resultat)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          </SlideIn>
+              </SlideIn>
+            </>
+          )}
         </div>
       )}
 
       {/* Balanse */}
-      {aktivFane === "balanse" && (
+      {!loading && aktivFane === "balanse" && (
         <SlideIn direction="up">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Eiendeler</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="px-4 py-2 text-left font-medium text-muted-foreground">Konto</th>
-                      <th className="px-4 py-2 text-left font-medium text-muted-foreground">Navn</th>
-                      <th className="px-4 py-2 text-right font-medium text-muted-foreground">Beløp</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {balanseData.eiendeler.map((r) => (
-                      <tr key={r.konto} className="border-t border-border/30">
-                        <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{r.konto}</td>
-                        <td className="px-4 py-2">{r.navn}</td>
-                        <td className="px-4 py-2 text-right font-medium">{formatNOK(r.belop)}</td>
+          {balanse.eiendeler.length === 0 ? (
+            <div className="rounded-xl border border-border/40 py-16 text-center text-muted-foreground">
+              <BarChart3 className="mx-auto mb-3 h-8 w-8 opacity-40" />
+              <p className="text-sm font-medium">Ingen balansedata</p>
+              <p className="text-xs mt-1">Bokfør bilag med kontoer i klasse 1 og 2 for å se balansen.</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Eiendeler</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Konto</th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Navn</th>
+                        <th className="px-4 py-2 text-right font-medium text-muted-foreground">Beløp</th>
                       </tr>
-                    ))}
-                    <tr className="border-t-2 border-border bg-muted/20">
-                      <td className="px-4 py-3"></td>
-                      <td className="px-4 py-3 font-bold">Sum eiendeler</td>
-                      <td className="px-4 py-3 text-right font-bold">{formatNOK(totalEiendeler)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
+                    </thead>
+                    <tbody>
+                      {balanse.eiendeler.map((r) => (
+                        <tr key={r.konto} className="border-t border-border/30">
+                          <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{r.konto}</td>
+                          <td className="px-4 py-2">{r.navn}</td>
+                          <td className="px-4 py-2 text-right font-medium">{formatNOK(r.belop)}</td>
+                        </tr>
+                      ))}
+                      <tr className="border-t-2 border-border bg-muted/20">
+                        <td className="px-4 py-3"></td>
+                        <td className="px-4 py-3 font-bold">Sum eiendeler</td>
+                        <td className="px-4 py-3 text-right font-bold">{formatNOK(balanse.totalEiendeler)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Gjeld og egenkapital</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="px-4 py-2 text-left font-medium text-muted-foreground">Konto</th>
-                      <th className="px-4 py-2 text-left font-medium text-muted-foreground">Navn</th>
-                      <th className="px-4 py-2 text-right font-medium text-muted-foreground">Beløp</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {balanseData.gjeldOgEgenkapital.map((r) => (
-                      <tr key={r.konto} className="border-t border-border/30">
-                        <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{r.konto}</td>
-                        <td className="px-4 py-2">{r.navn}</td>
-                        <td className="px-4 py-2 text-right font-medium">{formatNOK(r.belop)}</td>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Gjeld og egenkapital</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Konto</th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Navn</th>
+                        <th className="px-4 py-2 text-right font-medium text-muted-foreground">Beløp</th>
                       </tr>
-                    ))}
-                    <tr className="border-t-2 border-border bg-muted/20">
-                      <td className="px-4 py-3"></td>
-                      <td className="px-4 py-3 font-bold">Sum gjeld og EK</td>
-                      <td className="px-4 py-3 text-right font-bold">{formatNOK(totalGjeld)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          </div>
+                    </thead>
+                    <tbody>
+                      {balanse.gjeldOgEgenkapital.map((r) => (
+                        <tr key={r.konto} className="border-t border-border/30">
+                          <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{r.konto}</td>
+                          <td className="px-4 py-2">{r.navn}</td>
+                          <td className="px-4 py-2 text-right font-medium">{formatNOK(r.belop)}</td>
+                        </tr>
+                      ))}
+                      <tr className="border-t-2 border-border bg-muted/20">
+                        <td className="px-4 py-3"></td>
+                        <td className="px-4 py-3 font-bold">Sum gjeld og EK</td>
+                        <td className="px-4 py-3 text-right font-bold">{formatNOK(balanse.totalGjeld)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </SlideIn>
       )}
 
       {/* MVA-rapport */}
-      {aktivFane === "mva" && (
+      {!loading && aktivFane === "mva" && (
         <div className="space-y-4">
-          <StaggerList className="space-y-4" staggerDelay={0.08}>
-            {mvaData.map((termin) => (
-              <StaggerItem key={termin.periode}>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-3">
-                    <div>
+          {mvaTerminer.length === 0 ? (
+            <SlideIn direction="up">
+              <div className="rounded-xl border border-border/40 py-16 text-center text-muted-foreground">
+                <FileText className="mx-auto mb-3 h-8 w-8 opacity-40" />
+                <p className="text-sm font-medium">Ingen MVA-data</p>
+                <p className="text-xs mt-1">Bokfør bilag med MVA-kontoer (271x/274x) for å se MVA-rapporten.</p>
+              </div>
+            </SlideIn>
+          ) : (
+            <StaggerList className="space-y-4" staggerDelay={0.08}>
+              {mvaTerminer.map((termin) => (
+                <StaggerItem key={termin.periode}>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-3">
                       <CardTitle className="text-base">{termin.periode}</CardTitle>
-                    </div>
-                    <Badge variant={termin.status === "levert" ? "default" : "outline"}>
-                      {termin.status === "levert" ? "Levert" : "Utkast"}
-                    </Badge>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-lg bg-muted/50 p-3">
-                        <p className="text-xs text-muted-foreground">Utgående MVA</p>
-                        <p className="mt-1 text-lg font-bold">{formatNOK(termin.utgåendeMva)}</p>
+                      <Badge variant={termin.åBetale <= 0 ? "default" : "outline"}>
+                        {termin.åBetale <= 0 ? "Til gode" : "Utkast"}
+                      </Badge>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-lg bg-muted/50 p-3">
+                          <p className="text-xs text-muted-foreground">Utgående MVA</p>
+                          <p className="mt-1 text-lg font-bold">{formatNOK(termin.utgåendeMva)}</p>
+                        </div>
+                        <div className="rounded-lg bg-muted/50 p-3">
+                          <p className="text-xs text-muted-foreground">Inngående MVA (fradrag)</p>
+                          <p className="mt-1 text-lg font-bold text-green-600">− {formatNOK(termin.inngåendeMva)}</p>
+                        </div>
+                        <div className="rounded-lg bg-primary/10 p-3 border border-primary/20">
+                          <p className="text-xs text-muted-foreground">Å betale til Skatteetaten</p>
+                          <p className="mt-1 text-lg font-bold text-primary">{formatNOK(termin.åBetale)}</p>
+                        </div>
                       </div>
-                      <div className="rounded-lg bg-muted/50 p-3">
-                        <p className="text-xs text-muted-foreground">Inngående MVA (fradrag)</p>
-                        <p className="mt-1 text-lg font-bold text-green-600">− {formatNOK(termin.inngåendeMva)}</p>
-                      </div>
-                      <div className="rounded-lg bg-primary/10 p-3 border border-primary/20">
-                        <p className="text-xs text-muted-foreground">Å betale til Skatteetaten</p>
-                        <p className="mt-1 text-lg font-bold text-primary">{formatNOK(termin.å_betale)}</p>
-                      </div>
-                    </div>
-                    {termin.status === "utkast" && (
-                      <div className="mt-3 flex gap-2">
-                        <Button size="sm">Send MVA-melding</Button>
-                        <Button variant="outline" size="sm">Forhåndsvis</Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </StaggerItem>
-            ))}
-          </StaggerList>
+                    </CardContent>
+                  </Card>
+                </StaggerItem>
+              ))}
+            </StaggerList>
+          )}
         </div>
       )}
 
       {/* SAF-T */}
-      {aktivFane === "saft" && (
+      {!loading && aktivFane === "saft" && (
         <SlideIn direction="up">
           <Card>
             <CardHeader>

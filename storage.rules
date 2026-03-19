@@ -1,9 +1,26 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Åpent for utvikling — stram inn før prod
+
+    // ─── Brukerens egne filer ────────────────────────────────────────────────────
+    // Filstruktur: users/{uid}/bilag/{bilagId}/{filnavn}
+    match /users/{uid}/{allPaths=**} {
+      // Kun innlogget bruker kan lese sine egne filer
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // Kun innlogget bruker kan laste opp til sin egen mappe
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size <= 10 * 1024 * 1024   // Maks 10 MB
+        && request.resource.contentType.matches('application/pdf|image/jpeg|image/png|image/heic|image/heif');
+
+      // Sletting tillatt for eier
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Alt annet er forbudt
     match /{allPaths=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }

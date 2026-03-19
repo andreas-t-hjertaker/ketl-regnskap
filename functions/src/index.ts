@@ -1,8 +1,10 @@
 import { onRequest } from "firebase-functions/v2/https";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 import Stripe from "stripe";
 import { z } from "zod";
+import { VertexAI, HarmCategory, HarmBlockThreshold } from "@google-cloud/vertexai";
 import { success, fail, withAuth, withAdmin, withValidation, rateLimit, type RouteContext } from "./middleware";
 
 admin.initializeApp();
@@ -590,6 +592,203 @@ const routes: Route[] = [
 // ============================================================
 // HTTP Functions
 // ============================================================
+
+// ============================================================
+// AI Bokføringspipeline
+// ============================================================
+
+const SYSTEM_PROMPT = `Du er en norsk regnskapsassistent med ekspertkunnskap i:
+- Norsk regnskapsstandard NS 4102 (kontoplan)
+- MVA-regler (25%, 15%, 12%, 0%)
+- Regnskapsloven og bokføringsloven
+
+Din oppgave er å analysere bilag (kvitteringer, fakturaer, etc.) og foreslå riktige posteringer.
+
+Regler for posteringer:
+- Debetsiden og kreditsiden MÅ summere til samme beløp (balansert bilag)
+- Leverandørgjeld bokføres alltid på konto 2400
+- Inngående MVA 25% → konto 2710
+- Inngående MVA 15% → konto 2711
+- Inngående MVA 12% → konto 2712
+
+Returner ALLTID et gyldig JSON-objekt (ingen markdown, ingen forklarende tekst rundt JSON).
+
+Format:
+{
+  "posteringer": [
+    { "kontonr": "6860", "kontonavn": "Programvare og lisenser", "debet": 1992, "kredit": 0, "mvaKode": "25" },
+    { "kontonr": "2710", "kontonavn": "Inngående MVA", "debet": 498, "kredit": 0 },
+    { "kontonr": "2400", "kontonavn": "Leverandørgjeld", "debet": 0, "kredit": 2490 }
+  ],
+  "begrunnelse": "Forklaring på valgene",
+  "konfidens": 0.9,
+  "foreslåttKategori": "Programvarekostnader"
+}`;
+
+async function analyserMedGemini(
+  projektId: string,
+  beskrivelse: string,
+  belop: number,
+  leverandor: string | null,
+  vedleggBase64?: string,
+  mimeType?: string
+): Promise<{
+  posteringer: Array<{ kontonr: string; kontonavn: string; debet: number; kredit: number; mvaKode?: string }>;
+  begrunnelse: string;
+  konfidens: number;
+  foreslåttKategori: string;
+} | null> {
+  const vertexAI = new VertexAI({ project: projektId, location: "europe-west1" });
+  const model = vertexAI.getGenerativeModel({
+    model: "gemini-2.0-flash-001",
+    safetySettings: [
+      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    ],
+    systemInstruction: SYSTEM_PROMPT,
+  });
+
+  const userPrompt = `Analyser dette bilaget og foreslå posteringer:
+Beskrivelse: ${beskrivelse}
+Beløp (inkl. MVA): ${belop} NOK
+Leverandør: ${leverandor ?? "Ukjent"}
+
+${vedleggBase64 ? "Se vedlagt bilde/PDF for mer informasjon." : ""}`;
+
+  const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
+    { text: userPrompt },
+  ];
+
+  if (vedleggBase64 && mimeType) {
+    parts.push({
+      inlineData: {
+        mimeType: mimeType as "image/jpeg" | "image/png" | "application/pdf",
+        data: vedleggBase64,
+      },
+    });
+  }
+
+  const result = await model.generateContent({
+    contents: [{ role: "user", parts }],
+  });
+
+  const tekst = result.response.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  if (!tekst) return null;
+
+  // Rens JSON fra eventuell markdown-innpakning
+  const jsonMatch = tekst.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+
+  try {
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!parsed.posteringer || !Array.isArray(parsed.posteringer)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Cloud Function: Analyser nytt bilag med Gemini AI
+ * Utløst når et bilag med status "ubehandlet" opprettes i Firestore.
+ */
+export const analyserBilag = onDocumentCreated(
+  {
+    document: "users/{uid}/bilag/{bilagId}",
+    region: "europe-west1",
+    timeoutSeconds: 120,
+    memory: "512MiB",
+  },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const data = snap.data();
+    if (!data || data.status !== "ubehandlet") return;
+
+    const { uid, bilagId } = event.params;
+    const projektId = process.env.GCLOUD_PROJECT || admin.app().options.projectId || "";
+
+    try {
+      // Hent eventuelt vedlegg fra Storage (maks 4 MB for inline)
+      let vedleggBase64: string | undefined;
+      let mimeType: string | undefined;
+      if (data.vedleggUrl && typeof data.vedleggUrl === "string") {
+        try {
+          const storage = admin.storage();
+          // Parse storage path fra URL
+          const urlMatch = data.vedleggUrl.match(/\/o\/(.+?)\?/);
+          if (urlMatch) {
+            const filePath = decodeURIComponent(urlMatch[1]);
+            const filRef = storage.bucket().file(filePath);
+            const [innhold] = await filRef.download();
+            if (innhold.length <= 4 * 1024 * 1024) {
+              const [metadata] = await filRef.getMetadata();
+              mimeType = (metadata as { contentType?: string }).contentType ?? "image/jpeg";
+              vedleggBase64 = innhold.toString("base64");
+            }
+          }
+        } catch {
+          // Fortsett uten vedlegg
+        }
+      }
+
+      const forslag = await analyserMedGemini(
+        projektId,
+        data.beskrivelse ?? "",
+        data.belop ?? 0,
+        data.leverandor ?? null,
+        vedleggBase64,
+        mimeType
+      );
+
+      if (!forslag) {
+        console.warn(`[analyserBilag] Fikk ikke gyldig svar fra Gemini for bilag ${bilagId}`);
+        return;
+      }
+
+      // Valider at posteringene balanserer
+      const sumDebet = forslag.posteringer.reduce((s: number, p: { debet: number }) => s + (p.debet ?? 0), 0);
+      const sumKredit = forslag.posteringer.reduce((s: number, p: { kredit: number }) => s + (p.kredit ?? 0), 0);
+      if (Math.abs(sumDebet - sumKredit) > 1) {
+        console.warn(`[analyserBilag] Ubalanserte posteringer for bilag ${bilagId}: debet=${sumDebet}, kredit=${sumKredit}`);
+        return;
+      }
+
+      const bilagRef = db.doc(`users/${uid}/bilag/${bilagId}`);
+      await bilagRef.update({
+        status: "foreslått",
+        aiForslag: {
+          posteringer: forslag.posteringer,
+          begrunnelse: forslag.begrunnelse,
+          konfidens: forslag.konfidens,
+          foreslåttKategori: forslag.foreslåttKategori,
+          tidspunkt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Skriv revisjonslogg
+      await db.collection(`users/${uid}/audit_log`).add({
+        handling: "ai_forslag_generert",
+        entitetType: "bilag",
+        entitetId: bilagId,
+        utfortAv: "ai",
+        uid,
+        detaljer: {
+          konfidens: forslag.konfidens,
+          kategori: forslag.foreslåttKategori,
+          antallPosteringer: forslag.posteringer.length,
+        },
+        tidspunkt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      console.log(`[analyserBilag] Genererte AI-forslag for bilag ${bilagId} med konfidens ${forslag.konfidens}`);
+    } catch (err) {
+      console.error(`[analyserBilag] Feil ved analyse av bilag ${bilagId}:`, err);
+    }
+  }
+);
 
 /**
  * Health check / API-status

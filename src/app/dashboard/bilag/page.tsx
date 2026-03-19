@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Upload,
   Receipt,
@@ -20,139 +21,13 @@ import {
   XCircle,
   AlertCircle,
   Eye,
+  ExternalLink,
 } from "lucide-react";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
+import { useAuth } from "@/hooks/use-auth";
+import { useBilag, type BilagMedId } from "@/hooks/use-bilag";
+import { useBilagUpload } from "@/hooks/use-bilag-upload";
 import type { Bilag } from "@/types";
-
-// Demo-data
-const mockBilag: (Bilag & { id: string })[] = [
-  {
-    id: "b-001",
-    bilagsnr: 1001,
-    dato: "2026-03-01",
-    beskrivelse: "Faktura — Microsoft 365",
-    belop: 2490,
-    klientId: "klient-1",
-    status: "bokført",
-    kategori: "Programvarekostnader",
-    leverandor: "Microsoft Ireland",
-    posteringer: [
-      { kontonr: "6860", kontonavn: "Programvare og lisenser", debet: 1992, kredit: 0 },
-      { kontonr: "2710", kontonavn: "Inngående MVA", debet: 498, kredit: 0 },
-      { kontonr: "2400", kontonavn: "Leverandørgjeld", debet: 0, kredit: 2490 },
-    ],
-  },
-  {
-    id: "b-002",
-    bilagsnr: 1002,
-    dato: "2026-03-03",
-    beskrivelse: "Faktura — Telenor Bedrift",
-    belop: 3240,
-    klientId: "klient-1",
-    status: "bokført",
-    kategori: "Telekommunikasjon",
-    leverandor: "Telenor AS",
-    posteringer: [
-      { kontonr: "6900", kontonavn: "Telekommunikasjon", debet: 2592, kredit: 0 },
-      { kontonr: "2710", kontonavn: "Inngående MVA", debet: 648, kredit: 0 },
-      { kontonr: "2400", kontonavn: "Leverandørgjeld", debet: 0, kredit: 3240 },
-    ],
-  },
-  {
-    id: "b-003",
-    bilagsnr: 1003,
-    dato: "2026-03-05",
-    beskrivelse: "Kvittering — Kiwi Storgata",
-    belop: 347,
-    klientId: "klient-1",
-    status: "foreslått",
-    kategori: "Kontorkostnader",
-    leverandor: "Kiwi",
-    posteringer: [],
-    aiForslag: {
-      posteringer: [
-        { kontonr: "6600", kontonavn: "Kontorkostnader", debet: 277.6, kredit: 0 },
-        { kontonr: "2710", kontonavn: "Inngående MVA", debet: 69.4, kredit: 0 },
-        { kontonr: "2400", kontonavn: "Leverandørgjeld", debet: 0, kredit: 347 },
-      ],
-      begrunnelse: "Basert på leverandørnavn og beløp klassifisert som kontorkostnader.",
-      konfidens: 0.82,
-      foreslåttKategori: "Kontorkostnader",
-      tidspunkt: new Date("2026-03-05T10:14:00"),
-    },
-  },
-  {
-    id: "b-004",
-    bilagsnr: 1004,
-    dato: "2026-03-07",
-    beskrivelse: "Faktura — Hafslund Nett (strøm)",
-    belop: 4180,
-    klientId: "klient-1",
-    status: "foreslått",
-    kategori: "Energi",
-    leverandor: "Hafslund Nett AS",
-    posteringer: [],
-    aiForslag: {
-      posteringer: [
-        { kontonr: "6730", kontonavn: "Strøm, fyring og vann", debet: 3344, kredit: 0 },
-        { kontonr: "2710", kontonavn: "Inngående MVA", debet: 836, kredit: 0 },
-        { kontonr: "2400", kontonavn: "Leverandørgjeld", debet: 0, kredit: 4180 },
-      ],
-      begrunnelse: "Strømfaktura fra nettselskap. MVA 25%.",
-      konfidens: 0.95,
-      foreslåttKategori: "Energi",
-      tidspunkt: new Date("2026-03-07T09:02:00"),
-    },
-  },
-  {
-    id: "b-005",
-    bilagsnr: 1005,
-    dato: "2026-03-10",
-    beskrivelse: "Faktura — Adobe Creative Cloud",
-    belop: 1890,
-    klientId: "klient-1",
-    status: "ubehandlet",
-    leverandor: "Adobe Inc.",
-    posteringer: [],
-  },
-  {
-    id: "b-006",
-    bilagsnr: 1006,
-    dato: "2026-03-12",
-    beskrivelse: "Reiseregning — Oslo–Bergen",
-    belop: 1450,
-    klientId: "klient-1",
-    status: "ubehandlet",
-    leverandor: "VY Group AS",
-    posteringer: [],
-  },
-  {
-    id: "b-007",
-    bilagsnr: 1007,
-    dato: "2026-03-14",
-    beskrivelse: "Faktura — Regnskap AS (lønn)",
-    belop: 68500,
-    klientId: "klient-1",
-    status: "bokført",
-    kategori: "Lønnskostnader",
-    leverandor: "Regnskap AS",
-    posteringer: [
-      { kontonr: "5000", kontonavn: "Lønn ansatte", debet: 68500, kredit: 0 },
-      { kontonr: "2910", kontonavn: "Skyldig lønn", debet: 0, kredit: 68500 },
-    ],
-  },
-  {
-    id: "b-008",
-    bilagsnr: 1008,
-    dato: "2026-03-15",
-    beskrivelse: "Kvittering — Parkering Oslo S",
-    belop: 120,
-    klientId: "klient-1",
-    status: "avvist",
-    leverandor: "Apcoa Parking",
-    posteringer: [],
-  },
-];
 
 type BilagRow = {
   id: string;
@@ -188,48 +63,71 @@ function formatNOK(value: number) {
   }).format(value);
 }
 
-const tableData: BilagRow[] = mockBilag.map((b) => ({
-  id: b.id,
-  bilagsnr: b.bilagsnr,
-  dato: b.dato,
-  beskrivelse: b.beskrivelse,
-  leverandor: b.leverandor ?? "—",
-  belop: formatNOK(b.belop),
-  status: b.status,
-  kategori: b.kategori ?? "—",
-}));
-
-const columns: ColumnDef<BilagRow>[] = [
-  { key: "bilagsnr", header: "Nr.", sortable: true },
-  { key: "dato", header: "Dato", sortable: true },
-  { key: "beskrivelse", header: "Beskrivelse", sortable: true },
-  { key: "leverandor", header: "Leverandør", sortable: true },
-  { key: "belop", header: "Beløp", sortable: false },
-  { key: "kategori", header: "Kategori", sortable: true },
-  {
-    key: "status",
-    header: "Status",
-    sortable: true,
-    render: (value) => {
-      const s = value as Bilag["status"];
-      const cfg = statusBadge[s];
-      const Ikon = statusIkon[s];
-      return (
-        <Badge variant={cfg.variant} className="gap-1">
-          <Ikon className="h-3 w-3" />
-          {cfg.label}
-        </Badge>
-      );
-    },
-  },
-];
-
 export default function BilagPage() {
+  const { user } = useAuth();
+  const { bilag, loading, godkjennBilag, avvisBilag } = useBilag(user?.uid ?? null);
+  const { uploadFlere, lasterOpp, fremdrift } = useBilagUpload(user?.uid ?? null);
   const [dragOver, setDragOver] = useState(false);
-  const [selectedBilag, setSelectedBilag] = useState<(Bilag & { id: string }) | null>(null);
+  const [selectedBilag, setSelectedBilag] = useState<BilagMedId | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const antallUbehandlet = mockBilag.filter((b) => b.status === "ubehandlet").length;
-  const antallForeslått = mockBilag.filter((b) => b.status === "foreslått").length;
+  const antallUbehandlet = bilag.filter((b) => b.status === "ubehandlet").length;
+  const antallForeslått = bilag.filter((b) => b.status === "foreslått").length;
+
+  const tableData: BilagRow[] = bilag.map((b) => ({
+    id: b.id,
+    bilagsnr: b.bilagsnr,
+    dato: b.dato,
+    beskrivelse: b.beskrivelse,
+    leverandor: b.leverandor ?? "—",
+    belop: formatNOK(b.belop),
+    status: b.status,
+    kategori: b.kategori ?? "—",
+  }));
+
+  const columns: ColumnDef<BilagRow>[] = [
+    { key: "bilagsnr", header: "Nr.", sortable: true },
+    { key: "dato", header: "Dato", sortable: true },
+    { key: "beskrivelse", header: "Beskrivelse", sortable: true },
+    { key: "leverandor", header: "Leverandør", sortable: true },
+    { key: "belop", header: "Beløp", sortable: false },
+    { key: "kategori", header: "Kategori", sortable: true },
+    {
+      key: "status",
+      header: "Status",
+      sortable: true,
+      render: (value) => {
+        const s = value as Bilag["status"];
+        const cfg = statusBadge[s];
+        const Ikon = statusIkon[s];
+        return (
+          <Badge variant={cfg.variant} className="gap-1">
+            <Ikon className="h-3 w-3" />
+            {cfg.label}
+          </Badge>
+        );
+      },
+    },
+  ];
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      const filer = Array.from(e.dataTransfer.files);
+      if (filer.length > 0) await uploadFlere(filer);
+    },
+    [uploadFlere]
+  );
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const filer = Array.from(e.target.files ?? []);
+      if (filer.length > 0) await uploadFlere(filer);
+      e.target.value = "";
+    },
+    [uploadFlere]
+  );
 
   return (
     <div className="space-y-6">
@@ -242,56 +140,98 @@ export default function BilagPage() {
               Administrer kvitteringer og fakturaer. AI foreslår bokføring automatisk.
             </p>
           </div>
-          <Button>
+          <Button onClick={() => fileInputRef.current?.click()} disabled={lasterOpp}>
             <Upload className="mr-2 h-4 w-4" />
-            Last opp bilag
+            {lasterOpp ? `Laster opp… ${fremdrift}%` : "Last opp bilag"}
           </Button>
         </div>
       </SlideIn>
 
       {/* Statistikk-kort */}
-      <StaggerList className="grid gap-4 sm:grid-cols-4" staggerDelay={0.06}>
-        {[
-          { label: "Totalt", value: mockBilag.length, icon: Receipt, color: "text-foreground" },
-          { label: "Ubehandlet", value: antallUbehandlet, icon: AlertCircle, color: "text-orange-500" },
-          { label: "AI-forslag", value: antallForeslått, icon: Bot, color: "text-blue-500" },
-          { label: "Bokført", value: mockBilag.filter(b => b.status === "bokført").length, icon: CheckCircle2, color: "text-green-500" },
-        ].map((stat) => (
-          <StaggerItem key={stat.label}>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardDescription className="text-xs">{stat.label}</CardDescription>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <Skeleton className="h-3 w-20" />
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold">{stat.value}</p>
+                <Skeleton className="h-8 w-12" />
               </CardContent>
             </Card>
-          </StaggerItem>
-        ))}
-      </StaggerList>
+          ))}
+        </div>
+      ) : (
+        <StaggerList className="grid gap-4 sm:grid-cols-4" staggerDelay={0.06}>
+          {[
+            { label: "Totalt", value: bilag.length, icon: Receipt, color: "text-foreground" },
+            { label: "Ubehandlet", value: antallUbehandlet, icon: AlertCircle, color: "text-orange-500" },
+            { label: "AI-forslag", value: antallForeslått, icon: Bot, color: "text-blue-500" },
+            { label: "Bokført", value: bilag.filter(b => b.status === "bokført").length, icon: CheckCircle2, color: "text-green-500" },
+          ].map((stat) => (
+            <StaggerItem key={stat.label}>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardDescription className="text-xs">{stat.label}</CardDescription>
+                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">{stat.value}</p>
+                </CardContent>
+              </Card>
+            </StaggerItem>
+          ))}
+        </StaggerList>
+      )}
 
       {/* Dra-og-slipp opplastingssone */}
       <SlideIn direction="up" delay={0.15}>
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => { e.preventDefault(); setDragOver(false); }}
+          onDrop={handleDrop}
           className={`rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors ${
             dragOver
               ? "border-primary bg-primary/5"
               : "border-border/50 hover:border-border hover:bg-accent/20"
           }`}
         >
-          <Upload className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-          <p className="text-sm font-medium">Dra filer hit, eller klikk for å velge</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            PDF, JPG, PNG — AI analyserer og foreslår bokføring automatisk
-          </p>
-          <Button variant="outline" size="sm" className="mt-4">
-            Velg filer
-          </Button>
+          <Upload className={`mx-auto mb-3 h-8 w-8 ${lasterOpp ? "text-primary animate-pulse" : "text-muted-foreground"}`} />
+          {lasterOpp ? (
+            <>
+              <p className="text-sm font-medium">Laster opp… {fremdrift}%</p>
+              <div className="mt-3 mx-auto max-w-xs rounded-full bg-border/50 h-2">
+                <div
+                  className="h-2 rounded-full bg-primary transition-all"
+                  style={{ width: `${fremdrift}%` }}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-medium">Dra filer hit, eller klikk for å velge</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                PDF, JPG, PNG, HEIC — maks 10 MB — AI analyserer og foreslår bokføring automatisk
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Velg filer
+              </Button>
+            </>
+          )}
         </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".pdf,.jpg,.jpeg,.png,.heic,.heif"
+          className="hidden"
+          onChange={handleFileChange}
+        />
       </SlideIn>
 
       {/* Detaljvisning for valgt bilag */}
@@ -307,11 +247,20 @@ export default function BilagPage() {
                   {selectedBilag.leverandor} · {selectedBilag.dato} · {formatNOK(selectedBilag.belop)}
                 </CardDescription>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedBilag(null)}>
-                Lukk
-              </Button>
+              <div className="flex items-center gap-2">
+                {selectedBilag.vedleggUrl && (
+                  <Button variant="ghost" size="sm" asChild>
+                    <a href={selectedBilag.vedleggUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => setSelectedBilag(null)}>
+                  Lukk
+                </Button>
+              </div>
             </CardHeader>
-            {selectedBilag.aiForslag && (
+            {selectedBilag.aiForslag && selectedBilag.status === "foreslått" && (
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Bot className="h-4 w-4 text-blue-500" />
@@ -348,17 +297,61 @@ export default function BilagPage() {
                   </table>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm">
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      await godkjennBilag(selectedBilag.id);
+                      setSelectedBilag(null);
+                    }}
+                  >
                     <CheckCircle2 className="mr-2 h-4 w-4" />
                     Godkjenn og bokfør
                   </Button>
-                  <Button variant="outline" size="sm">
-                    Rediger
-                  </Button>
-                  <Button variant="ghost" size="sm" className="text-destructive">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                    onClick={async () => {
+                      await avvisBilag(selectedBilag.id);
+                      setSelectedBilag(null);
+                    }}
+                  >
                     Avvis
                   </Button>
                 </div>
+              </CardContent>
+            )}
+            {(!selectedBilag.aiForslag || selectedBilag.status !== "foreslått") && (
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  {selectedBilag.status === "ubehandlet"
+                    ? "AI-analyse pågår. Kom tilbake om litt."
+                    : selectedBilag.status === "bokført"
+                    ? "Dette bilaget er bokført."
+                    : "Dette bilaget er avvist."}
+                </p>
+                {selectedBilag.posteringer.length > 0 && (
+                  <div className="mt-3 rounded-lg border border-border/50 overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium">Konto</th>
+                          <th className="px-3 py-2 text-right font-medium">Debet</th>
+                          <th className="px-3 py-2 text-right font-medium">Kredit</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedBilag.posteringer.map((p, i) => (
+                          <tr key={i} className="border-t border-border/30">
+                            <td className="px-3 py-2 font-mono text-xs">{p.kontonr} {p.kontonavn}</td>
+                            <td className="px-3 py-2 text-right font-mono text-xs">{p.debet > 0 ? formatNOK(p.debet) : "—"}</td>
+                            <td className="px-3 py-2 text-right font-mono text-xs">{p.kredit > 0 ? formatNOK(p.kredit) : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             )}
           </Card>
@@ -367,33 +360,49 @@ export default function BilagPage() {
 
       {/* DataTable */}
       <SlideIn direction="up" delay={0.2}>
-        <DataTable
-          data={tableData}
-          columns={[
-            ...columns,
-            {
-              key: "id",
-              header: "",
-              sortable: false,
-              render: (value) => {
-                const bilag = mockBilag.find((b) => b.id === value);
-                if (!bilag) return null;
-                return (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedBilag(bilag)}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                );
+        {loading ? (
+          <Card>
+            <CardContent className="p-6 space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </CardContent>
+          </Card>
+        ) : bilag.length === 0 ? (
+          <div className="rounded-xl border border-border/40 py-16 text-center text-muted-foreground">
+            <Receipt className="mx-auto mb-3 h-8 w-8 opacity-40" />
+            <p className="text-sm font-medium">Ingen bilag ennå</p>
+            <p className="text-xs mt-1">Last opp en kvittering eller faktura for å komme i gang.</p>
+          </div>
+        ) : (
+          <DataTable
+            data={tableData}
+            columns={[
+              ...columns,
+              {
+                key: "id",
+                header: "",
+                sortable: false,
+                render: (value) => {
+                  const b = bilag.find((x) => x.id === value);
+                  if (!b) return null;
+                  return (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedBilag(b)}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  );
+                },
               },
-            },
-          ]}
-          searchable
-          searchKey="beskrivelse"
-          pageSize={8}
-        />
+            ]}
+            searchable
+            searchKey="beskrivelse"
+            pageSize={8}
+          />
+        )}
       </SlideIn>
     </div>
   );
