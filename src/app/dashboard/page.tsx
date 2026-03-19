@@ -78,7 +78,12 @@ export default function DashboardPage() {
       <SlideIn direction="up" duration={0.4}>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            God morgen{user?.displayName ? `, ${user.displayName}` : ""}
+            {(() => {
+              const timer = new Date().getHours();
+              if (timer < 12) return "God morgen";
+              if (timer < 17) return "God ettermiddag";
+              return "God kveld";
+            })()}{user?.displayName ? `, ${user.displayName}` : ""}
           </h1>
           <p className="text-muted-foreground">
             Her er regnskapsoversikten din.

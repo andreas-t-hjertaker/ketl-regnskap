@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { useBilag } from "@/hooks/use-bilag";
 import type { Postering } from "@/types";
 
@@ -66,44 +66,7 @@ export function useRapporter(uid: string | null, klientId?: string | null) {
 
   const posteringer = useMemo(() => hentPosteringer(bilag), [bilag]);
 
-  const resultatregnskap = useMemo(
-    (periode?: string): Resultatregnskap => {
-      const filtrert = periode
-        ? posteringer.filter((p) => p.dato.startsWith(periode))
-        : posteringer;
-
-      const gruppert = grupperEtterKonto(filtrert);
-
-      const driftsinntekter: ResultatLinje[] = [];
-      const driftskostnader: ResultatLinje[] = [];
-
-      for (const [konto, { kontonavn, netto }] of gruppert.entries()) {
-        const klasse = kontoKlasse(konto);
-        if (klasse === "inntekt" && netto !== 0) {
-          driftsinntekter.push({ konto, navn: kontonavn, belop: Math.abs(netto) });
-        } else if (klasse === "kostnad" && netto !== 0) {
-          driftskostnader.push({ konto, navn: kontonavn, belop: Math.abs(netto) });
-        }
-      }
-
-      driftsinntekter.sort((a, b) => a.konto.localeCompare(b.konto));
-      driftskostnader.sort((a, b) => a.konto.localeCompare(b.konto));
-
-      const totalInntekter = driftsinntekter.reduce((s, r) => s + r.belop, 0);
-      const totalKostnader = driftskostnader.reduce((s, r) => s + r.belop, 0);
-
-      return {
-        driftsinntekter,
-        driftskostnader,
-        totalInntekter,
-        totalKostnader,
-        resultat: totalInntekter - totalKostnader,
-      };
-    },
-    [posteringer]
-  );
-
-  function resultatForPeriode(periode: string): Resultatregnskap {
+  const resultatForPeriode = useCallback((periode: string): Resultatregnskap => {
     const filtrert = periode === "alt"
       ? posteringer
       : posteringer.filter((p) => p.dato.startsWith(periode));
@@ -135,7 +98,7 @@ export function useRapporter(uid: string | null, klientId?: string | null) {
       totalKostnader,
       resultat: totalInntekter - totalKostnader,
     };
-  }
+  }, [posteringer]);
 
   const balanse = useMemo((): Balanse => {
     const gruppert = grupperEtterKonto(posteringer);
@@ -219,7 +182,6 @@ export function useRapporter(uid: string | null, klientId?: string | null) {
     loading,
     bilag,
     posteringer,
-    resultatregnskap,
     resultatForPeriode,
     balanse,
     mvaTerminer,

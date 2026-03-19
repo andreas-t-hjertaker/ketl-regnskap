@@ -249,11 +249,14 @@ export default function BilagPage() {
               </div>
               <div className="flex items-center gap-2">
                 {selectedBilag.vedleggUrl && (
-                  <Button variant="ghost" size="sm" asChild>
-                    <a href={selectedBilag.vedleggUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  </Button>
+                  <a
+                    href={selectedBilag.vedleggUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center h-8 px-3 rounded-md text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
                 )}
                 <Button variant="ghost" size="sm" onClick={() => setSelectedBilag(null)}>
                   Lukk
