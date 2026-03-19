@@ -62,15 +62,8 @@ function KlientVelger({ collapsed }: { collapsed?: boolean }) {
   if (collapsed) {
     return (
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-full flex items-center justify-center rounded-lg p-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-            title={aktivKlient?.navn ?? "Alle klienter"}
-          >
+        <DropdownMenuTrigger className="w-full flex items-center justify-center rounded-lg p-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground" title={aktivKlient?.navn ?? "Alle klienter"}>
             <Users className="h-4 w-4" />
-          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="right" align="start" className="w-48">
           <DropdownMenuItem onClick={() => setAktivKlient(null)}>
@@ -88,11 +81,7 @@ function KlientVelger({ collapsed }: { collapsed?: boolean }) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          className="w-full justify-between px-3 py-2 h-auto text-sm font-normal hover:bg-accent/50"
-        >
+      <DropdownMenuTrigger className="w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-normal hover:bg-accent/50">
           <div className="flex items-center gap-2 min-w-0">
             <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="truncate text-left">
@@ -100,7 +89,6 @@ function KlientVelger({ collapsed }: { collapsed?: boolean }) {
             </span>
           </div>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="start">
         <div className="px-2 py-1.5">
