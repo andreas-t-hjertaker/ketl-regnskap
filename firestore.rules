@@ -75,6 +75,11 @@ service cloud.firestore {
       match /kontoplan/{kontoId} {
         allow read, write: if erEier(uid);
       }
+
+      // Bilagsnummer-tellere — atomisk inkrement via transaksjon
+      match /counters/{counterId} {
+        allow read, write: if erEier(uid);
+      }
     }
   }
 }

@@ -7,7 +7,7 @@ import {
   addDocument,
   updateDocument,
   deleteDocument,
-  getCollection,
+  nestebilagsnummer,
 } from "@/lib/firebase/firestore";
 import { loggHandling } from "@/lib/audit";
 import { showToast } from "@/lib/toast";
@@ -15,17 +15,6 @@ import type { Bilag } from "@/types";
 
 export type BilagMedId = Bilag & { id: string };
 
-/** Beregn neste bilagsnummer for brukeren */
-async function nestebilagsnr(uid: string): Promise<number> {
-  try {
-    const bilag = await getCollection<Bilag>(`users/${uid}/bilag`);
-    if (bilag.length === 0) return 1001;
-    const maks = Math.max(...bilag.map((b) => (b as Bilag & { bilagsnr: number }).bilagsnr ?? 0));
-    return maks + 1;
-  } catch {
-    return 1001;
-  }
-}
 
 export function useBilag(uid: string | null, klientId?: string | null) {
   const [bilag, setBilag] = useState<BilagMedId[]>([]);
@@ -61,7 +50,8 @@ export function useBilag(uid: string | null, klientId?: string | null) {
     async (data: Omit<Bilag, "bilagsnr">): Promise<string | null> => {
       if (!uid || !path) return null;
       try {
-        const bilagsnr = await nestebilagsnr(uid);
+        const år = data.dato ? parseInt(data.dato.slice(0, 4), 10) : undefined;
+        const bilagsnr = await nestebilagsnummer(uid, år);
         const ref = await addDocument(path, { ...data, bilagsnr });
         await loggHandling(uid, "bilag_opprettet", "bilag", ref.id, {
           bilagsnr,

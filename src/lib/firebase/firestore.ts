@@ -15,6 +15,7 @@ import {
   onSnapshot,
   serverTimestamp,
   writeBatch,
+  runTransaction,
   type DocumentData,
   type DocumentSnapshot,
   type QueryConstraint,
@@ -178,6 +179,24 @@ export async function batchWrite(operations: BatchOperation[]) {
   return batch.commit();
 }
 
+/**
+ * Hent neste bilagsnummer atomisk via Firestore-transaksjon.
+ * Tellerdokument: users/{uid}/counters/bilag_{år}
+ * Starter på 1001 og øker med 1 per bilag — garanterer ingen hull.
+ */
+export async function nestebilagsnummer(uid: string, år?: number): Promise<number> {
+  const regnskapsår = år ?? new Date().getFullYear();
+  const tellerRef = doc(db, `users/${uid}/counters/bilag_${regnskapsår}`);
+
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(tellerRef);
+    const forrige = snap.exists() ? (snap.data().siste as number) : 1000;
+    const neste = forrige + 1;
+    tx.set(tellerRef, { siste: neste, oppdatert: serverTimestamp() });
+    return neste;
+  });
+}
+
 // Re-export nyttige ting
 export {
   collection,
@@ -188,4 +207,5 @@ export {
   limit,
   onSnapshot,
   serverTimestamp,
+  runTransaction,
 };
