@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,20 +35,38 @@ function formatNOK(value: number) {
   }).format(value);
 }
 
-const periodeAlternativer = [
-  { key: "2026-01", label: "Januar 2026" },
-  { key: "2026-02", label: "Februar 2026" },
-  { key: "2026-03", label: "Mars 2026" },
-  { key: "2026", label: "Hele 2026" },
-  { key: "alt", label: "Alle perioder" },
-];
+function genererPerioder(bilagDatoer: string[]) {
+  const måneder = new Set(bilagDatoer.map((d) => d.slice(0, 7)));
+  const år = new Set(bilagDatoer.map((d) => d.slice(0, 4)));
+  const sorterte = [...måneder].sort();
+  const formatter = new Intl.DateTimeFormat("nb-NO", { month: "long", year: "numeric" });
+
+  const månedAlternativer = sorterte.map((m) => ({
+    key: m,
+    label: formatter.format(new Date(m + "-01")),
+  }));
+
+  const årAlternativer = [...år].sort().map((å) => ({
+    key: å,
+    label: `Hele ${å}`,
+  }));
+
+  return [...månedAlternativer, ...årAlternativer, { key: "alt", label: "Alle perioder" }];
+}
 
 export default function RapporterPage() {
   const { user } = useAuth();
-  const { loading, resultatForPeriode, balanse, mvaTerminer } = useRapporter(
+  const { loading, bilag, resultatForPeriode, balanse, mvaTerminer } = useRapporter(
     user?.uid ?? null
   );
-  const [valgtPeriode, setValgtPeriode] = useState("2026-03");
+  const periodeAlternativer = useMemo(
+    () => genererPerioder(bilag.map((b) => b.dato)),
+    [bilag]
+  );
+  const [valgtPeriode, setValgtPeriode] = useState(() => {
+    const nå = new Date();
+    return `${nå.getFullYear()}-${String(nå.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [aktivFane, setAktivFane] = useState<Fane>("resultat");
 
   const resultat = resultatForPeriode(valgtPeriode);

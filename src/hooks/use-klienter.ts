@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { orderBy } from "firebase/firestore";
+import { orderBy, where } from "firebase/firestore";
 import {
   subscribeToCollection,
   addDocument,
@@ -103,9 +103,7 @@ export function useKlienter(uid: string | null) {
 
       // Sjekk om klienten har bilag
       try {
-        const bilag = await getCollection(`users/${uid}/bilag`, ...([
-          // where("klientId", "==", id) - importeres ikke her for enkelhet
-        ] as []));
+        const bilag = await getCollection(`users/${uid}/bilag`, where("klientId", "==", id));
         if (bilag.length > 0) {
           showToast.error("Kan ikke slette klient med tilknyttede bilag. Slett bilagene først.");
           return;

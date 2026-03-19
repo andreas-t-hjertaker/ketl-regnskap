@@ -625,6 +625,23 @@ Format:
   "foreslåttKategori": "Programvarekostnader"
 }`;
 
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      if (i === maxRetries - 1) throw err;
+      const status = (err as { status?: number }).status;
+      if (status === 429 || status === 503) {
+        await new Promise((r) => setTimeout(r, Math.pow(2, i) * 1000));
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw new Error("Unreachable");
+}
+
 async function analyserMedGemini(
   projektId: string,
   beskrivelse: string,
@@ -638,7 +655,8 @@ async function analyserMedGemini(
   konfidens: number;
   foreslåttKategori: string;
 } | null> {
-  const vertexAI = new VertexAI({ project: projektId, location: "europe-west1" });
+  const location = process.env.VERTEX_AI_LOCATION ?? "europe-west1";
+  const vertexAI = new VertexAI({ project: projektId, location });
   const model = vertexAI.getGenerativeModel({
     model: "gemini-2.0-flash-001",
     safetySettings: [
@@ -668,9 +686,11 @@ ${vedleggBase64 ? "Se vedlagt bilde/PDF for mer informasjon." : ""}`;
     });
   }
 
-  const result = await model.generateContent({
-    contents: [{ role: "user", parts }],
-  });
+  const result = await withRetry(() =>
+    model.generateContent({
+      contents: [{ role: "user", parts }],
+    })
+  );
 
   const tekst = result.response.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
   if (!tekst) return null;

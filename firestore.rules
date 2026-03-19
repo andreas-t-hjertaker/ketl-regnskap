@@ -52,7 +52,16 @@ service cloud.firestore {
 
       // Bilag og posteringer
       match /bilag/{bilagId} {
-        allow read, write: if erEier(uid);
+        allow read: if erEier(uid);
+        allow create: if erEier(uid) && (
+          !request.resource.data.keys().hasAny(['klientId']) ||
+          request.resource.data.klientId is string
+        );
+        allow update: if erEier(uid) && (
+          !request.resource.data.keys().hasAny(['klientId']) ||
+          request.resource.data.klientId is string
+        );
+        allow delete: if erEier(uid);
       }
 
       // Revisjonslogg — kun lesing for bruker, Cloud Functions kan skrive
