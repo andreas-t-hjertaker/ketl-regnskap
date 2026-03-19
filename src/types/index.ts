@@ -71,3 +71,78 @@ export type ApiKey = {
   expiresAt: Date | null;
   revoked: boolean;
 };
+
+// ─── Regnskapsdomene ────────────────────────────────────────────────────────
+
+/** Regnskapsklient (bedrift som bruker tjenesten) */
+export type Klient = {
+  navn: string;
+  orgnr: string;
+  kontaktperson: string;
+  epost: string;
+  telefon?: string;
+  adresse?: string;
+  bransje?: string;
+  opprettet: Date;
+};
+
+/** Kontoplan-konto (NS 4102 standard) */
+export type Konto = {
+  nummer: string;       // f.eks. "3000"
+  navn: string;         // f.eks. "Salgsinntekt"
+  type: "eiendel" | "gjeld" | "egenkapital" | "inntekt" | "kostnad";
+  mvaKode?: string;
+};
+
+/** Bilag / Voucher */
+export type Bilag = {
+  bilagsnr: number;
+  dato: string;         // ISO date
+  beskrivelse: string;
+  belop: number;        // beløp i NOK
+  klientId: string;
+  status: "ubehandlet" | "foreslått" | "bokført" | "avvist";
+  kategori?: string;
+  leverandor?: string;
+  vedleggUrl?: string;  // Firebase Storage URL for kvittering/faktura
+  posteringer: Postering[];
+  aiForslag?: AiForslag;
+};
+
+/** Postering (debet/kredit-linje i et bilag) */
+export type Postering = {
+  kontonr: string;
+  kontonavn: string;
+  debet: number;
+  kredit: number;
+  mvaKode?: string;
+  beskrivelse?: string;
+};
+
+/** AI-assistent sitt forslag til bokføring */
+export type AiForslag = {
+  posteringer: Postering[];
+  begrunnelse: string;
+  konfidens: number;    // 0-1
+  foreslåttKategori: string;
+  tidspunkt: Date;
+};
+
+/** Månedlig oversikt */
+export type MånedRapport = {
+  periode: string;     // "2026-03"
+  inntekter: number;
+  kostnader: number;
+  resultat: number;
+  antallBilag: number;
+  ubehandlede: number;
+};
+
+/** Aktivitetslogg for agenten */
+export type AgentAktivitet = {
+  type: "bokføring" | "forslag" | "rapport" | "epost" | "avstemming";
+  beskrivelse: string;
+  tidspunkt: Date;
+  klientId?: string;
+  bilagId?: string;
+};

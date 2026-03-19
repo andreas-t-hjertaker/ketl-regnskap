@@ -4,15 +4,15 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Cloud,
-  Zap,
-  Database,
-  Shield,
+  Receipt,
   ArrowRight,
-  CreditCard,
   Bot,
-  ToggleRight,
-  Users,
+  FileCheck2,
+  BarChart3,
+  Calculator,
+  FileBarChart,
+  ShieldCheck,
+  CheckCircle2,
 } from "lucide-react";
 import { BlurIn, SlideIn } from "@/components/motion";
 import { ScrollReveal } from "@/components/motion";
@@ -20,52 +20,52 @@ import { StaggerList, StaggerItem } from "@/components/motion";
 
 const features = [
   {
-    icon: Zap,
-    title: "Serverless backend",
-    description:
-      "Cloud Functions med automatisk skalering og null vedlikehold.",
-  },
-  {
-    icon: Database,
-    title: "Sanntidsdatabase",
-    description:
-      "Firestore med sanntidssynkronisering og offline-støtte.",
-  },
-  {
-    icon: Shield,
-    title: "Autentisering",
-    description:
-      "Firebase Auth med Google, e-post, passwordless og anonym.",
-  },
-  {
-    icon: CreditCard,
-    title: "Stripe-betaling",
-    description:
-      "Checkout, kundeportal og webhooks for abonnement — ferdig integrert.",
-  },
-  {
     icon: Bot,
-    title: "AI-assistent",
+    title: "AI-bokføring",
     description:
-      "Popup chat med Gemini streaming — kontekstbevisst og tilpassbar.",
+      "AI-agenten analyserer bilag automatisk og foreslår riktige posteringer basert på NS 4102 kontoplan.",
   },
   {
-    icon: ToggleRight,
-    title: "Feature flags",
+    icon: Receipt,
+    title: "Bilagshåndtering",
     description:
-      "Sanntids feature-toggles med plan-basert tilgang via Firestore.",
+      "Last opp kvitteringer og fakturaer. AI tolker innholdet og foreslår bokføring i sanntid.",
+  },
+  {
+    icon: Calculator,
+    title: "MVA-beregning",
+    description:
+      "Automatisk håndtering av MVA-koder og periodevise MVA-meldinger i henhold til norsk regelverk.",
+  },
+  {
+    icon: BarChart3,
+    title: "Rapporter",
+    description:
+      "Resultatregnskap, balanse og MVA-rapport genereres automatisk. Eksporter til SAF-T med ett klikk.",
+  },
+  {
+    icon: FileBarChart,
+    title: "SAF-T-eksport",
+    description:
+      "Eksporter regnskapsdata i SAF-T-format for myndighetskrav og revisjonsformål.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Revisjonsklar",
+    description:
+      "Komplett sporbarhet fra bilag til balanse. Alle endringer logges med tidsstempel.",
   },
 ];
 
 const extraFeatures = [
-  "Admin-panel med brukeradministrasjon",
-  "Onboarding-stepper for nye brukere",
-  "API-nøkler for programmatisk tilgang",
-  "SEO, Open Graph og JSON-LD",
-  "PWA-manifest og Web Vitals",
-  "Tema (lys/mørk/system)",
-  "CI/CD med GitHub Actions",
-  "Samtykkebanner for analytics",
+  "Automatisk periodeavslutning",
+  "Klientportal for regnskapsbyråer",
+  "E-postintegrasjon for fakturainnhenting",
+  "Bankkontoavstemming",
+  "Prosjektregnskap og kostnadssted",
+  "Budsjett vs. regnskap",
+  "API for integrasjon med ERP",
+  "Flerspråklig rapportering",
 ];
 
 export default function LandingPage() {
@@ -75,8 +75,8 @@ export default function LandingPage() {
       <nav className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-lg">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
           <div className="flex items-center gap-2">
-            <Cloud className="h-5 w-5" />
-            <span className="font-semibold tracking-tight">ketl cloud</span>
+            <Receipt className="h-5 w-5" />
+            <span className="font-semibold tracking-tight">ketl regnskap</span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/pricing">
@@ -98,39 +98,36 @@ export default function LandingPage() {
         <div className="max-w-2xl">
           <SlideIn direction="up" duration={0.5}>
             <Badge variant="outline" className="mb-4 font-mono">
-              <Cloud className="mr-1.5 h-3 w-3" />
-              SaaS boilerplate
+              <Bot className="mr-1.5 h-3 w-3" />
+              AI-regnskapsmedarbeider
             </Badge>
           </SlideIn>
           <BlurIn delay={0.1} duration={0.7}>
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-              Bygg raskere med{" "}
-              <span className="text-primary">ketl cloud</span>
+              Din AI-drevne{" "}
+              <span className="text-primary">regnskapsmedarbeider</span>
             </h1>
           </BlurIn>
           <SlideIn direction="up" delay={0.25} duration={0.5}>
             <p className="mt-4 text-lg text-muted-foreground">
-              Alt du trenger for å lage en moderne SaaS-applikasjon. Firebase,
-              Next.js og TypeScript — ferdig konfigurert og klar til bruk.
+              ketl regnskap automatiserer bokføring, bilagshåndtering og
+              rapportering for norske småbedrifter. Spar tid — la AI gjøre
+              regnskapsarbeidet.
             </p>
           </SlideIn>
           <SlideIn direction="up" delay={0.4} duration={0.5}>
             <div className="mt-8 flex gap-3">
               <Link href="/login">
                 <Button size="lg">
-                  Kom i gang
+                  Kom i gang gratis
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              <a
-                href="https://github.com/andreas-t-hjertaker/sandbox"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <Link href="/pricing">
                 <Button variant="outline" size="lg">
-                  GitHub
+                  Se priser
                 </Button>
-              </a>
+              </Link>
             </div>
           </SlideIn>
         </div>
@@ -140,9 +137,12 @@ export default function LandingPage() {
       <section className="border-t border-border/40">
         <div className="mx-auto max-w-5xl px-6 py-16">
           <ScrollReveal direction="up">
-            <h2 className="mb-8 text-2xl font-semibold tracking-tight">
-              Alt inkludert
+            <h2 className="mb-2 text-2xl font-semibold tracking-tight">
+              Automatiser regnskapet ditt
             </h2>
+            <p className="mb-8 text-muted-foreground">
+              Fra bilag til balanse — AI håndterer det meste automatisk.
+            </p>
           </ScrollReveal>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((f, i) => (
@@ -169,14 +169,14 @@ export default function LandingPage() {
         <div className="mx-auto max-w-5xl px-6 py-16">
           <ScrollReveal direction="up">
             <h2 className="mb-6 text-2xl font-semibold tracking-tight">
-              Og mye mer
+              Alt du trenger for norsk regnskap
             </h2>
           </ScrollReveal>
           <div className="grid gap-3 sm:grid-cols-2">
             {extraFeatures.map((f, i) => (
               <ScrollReveal key={f} direction="up" delay={i * 0.05}>
                 <div className="flex items-center gap-3 rounded-lg border border-border/30 px-4 py-3 text-sm text-muted-foreground transition-colors hover:text-foreground">
-                  <Users className="h-4 w-4 shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
                   {f}
                 </div>
               </ScrollReveal>
@@ -185,12 +185,33 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* CTA */}
+      <section className="border-t border-border/40 bg-accent/20">
+        <div className="mx-auto max-w-5xl px-6 py-16 text-center">
+          <ScrollReveal direction="up">
+            <FileCheck2 className="mx-auto mb-4 h-10 w-10 text-primary" />
+            <h2 className="mb-3 text-2xl font-semibold tracking-tight">
+              Klar til å spare tid på regnskapet?
+            </h2>
+            <p className="mb-6 text-muted-foreground">
+              Kom i gang gratis og opplev AI-drevet bokføring fra dag én.
+            </p>
+            <Link href="/login">
+              <Button size="lg">
+                Start gratis prøveperiode
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </ScrollReveal>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-border/40">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Cloud className="h-4 w-4" />
-            <span>ketl cloud</span>
+            <Receipt className="h-4 w-4" />
+            <span>ketl regnskap</span>
           </div>
           <p className="font-mono text-xs text-muted-foreground">2026</p>
         </div>

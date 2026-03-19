@@ -143,7 +143,7 @@ export default function LoginPage() {
   };
 
   const description: Record<typeof mode, string> = {
-    login: "Logg inn på ketl cloud",
+    login: "Logg inn på ketl regnskap",
     register: "Opprett en ny konto",
     reset: "Vi sender deg en lenke for å tilbakestille passordet",
     emaillink: "Vi sender deg en innloggingslenke — ingen passord nødvendig",

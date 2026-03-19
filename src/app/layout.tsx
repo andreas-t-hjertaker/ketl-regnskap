@@ -20,27 +20,27 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://ketlcloud.web.app"),
+  metadataBase: new URL("https://ketlregnskap.web.app"),
   title: {
-    default: "ketl cloud",
-    template: "%s | ketl cloud",
+    default: "ketl regnskap",
+    template: "%s | ketl regnskap",
   },
   description:
-    "SaaS-boilerplate med Next.js, Firebase og TypeScript. Alt du trenger for å bygge moderne webapplikasjoner.",
+    "AI-drevet regnskapsmedarbeider for norske småbedrifter. Automatisk bokføring, bilagshåndtering og rapportering.",
   manifest: "/manifest.json",
   openGraph: {
-    title: "ketl cloud",
+    title: "ketl regnskap",
     description:
-      "SaaS-boilerplate med Next.js, Firebase og TypeScript. Alt du trenger for å bygge moderne webapplikasjoner.",
+      "AI-drevet regnskapsmedarbeider for norske småbedrifter. Automatisk bokføring, bilagshåndtering og rapportering.",
     type: "website",
-    siteName: "ketl cloud",
+    siteName: "ketl regnskap",
     locale: "nb_NO",
   },
   twitter: {
     card: "summary_large_image",
-    title: "ketl cloud",
+    title: "ketl regnskap",
     description:
-      "SaaS-boilerplate med Next.js, Firebase og TypeScript.",
+      "AI-drevet regnskapsmedarbeider for norske småbedrifter.",
   },
 };
 
@@ -55,9 +55,9 @@ export default function RootLayout({
         className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}
       >
         <WebsiteJsonLd
-          name="ketl cloud"
-          url="https://ketlcloud.web.app"
-          description="SaaS-boilerplate med Next.js, Firebase og TypeScript."
+          name="ketl regnskap"
+          url="https://ketlregnskap.web.app"
+          description="AI-drevet regnskapsmedarbeider for norske småbedrifter."
         />
         <ThemeProvider>
           <AuthProvider>

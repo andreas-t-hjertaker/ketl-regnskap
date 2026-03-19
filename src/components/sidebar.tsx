@@ -13,12 +13,13 @@ import {
 } from "@/components/ui/sheet";
 import {
   LayoutDashboard,
-  FileText,
+  Receipt,
+  Building2,
+  BarChart3,
   Settings,
   PanelLeftClose,
   PanelLeft,
   Menu,
-  Cloud,
   CreditCard,
   Code,
   Shield,
@@ -26,8 +27,10 @@ import {
 import { useAdmin } from "@/hooks/use-admin";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/dokumenter", label: "Dokumenter", icon: FileText },
+  { href: "/dashboard", label: "Oversikt", icon: LayoutDashboard },
+  { href: "/dashboard/bilag", label: "Bilag", icon: Receipt },
+  { href: "/dashboard/klienter", label: "Klienter", icon: Building2 },
+  { href: "/dashboard/rapporter", label: "Rapporter", icon: BarChart3 },
   { href: "/dashboard/abonnement", label: "Abonnement", icon: CreditCard },
   { href: "/dashboard/utvikler", label: "Utvikler", icon: Code },
   { href: "/dashboard/innstillinger", label: "Innstillinger", icon: Settings },
@@ -85,8 +88,8 @@ export function Sidebar() {
             href="/dashboard"
             className="flex items-center gap-2 font-semibold tracking-tight"
           >
-            <Cloud className="h-5 w-5" />
-            <span>ketl cloud</span>
+            <Receipt className="h-5 w-5" />
+            <span>ketl regnskap</span>
           </Link>
         )}
         <Button
@@ -164,8 +167,8 @@ export function MobileSidebar() {
             className="flex items-center gap-2 font-semibold tracking-tight"
             onClick={() => setOpen(false)}
           >
-            <Cloud className="h-5 w-5" />
-            <span>ketl cloud</span>
+            <Receipt className="h-5 w-5" />
+            <span>ketl regnskap</span>
           </Link>
         </div>
         <div className="p-3">

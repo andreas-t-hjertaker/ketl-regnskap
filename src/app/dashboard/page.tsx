@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -13,179 +11,160 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
-  Cloud,
-  Database,
-  HardDrive,
-  Activity,
-  Cpu,
-  BarChart3,
+  TrendingUp,
+  TrendingDown,
+  Receipt,
+  AlertCircle,
+  Bot,
   CheckCircle2,
-  XCircle,
-  Loader2,
-  Users,
+  Clock,
   FileText,
-  Zap,
+  BarChart3,
 } from "lucide-react";
-import { SlideIn, StaggerList, StaggerItem, AnimatedCounter } from "@/components/motion";
-import { AnimatedCard } from "@/components/motion";
-import { SkeletonShimmer } from "@/components/motion";
+import {
+  SlideIn,
+  StaggerList,
+  StaggerItem,
+  AnimatedCounter,
+} from "@/components/motion";
+import type { AgentAktivitet } from "@/types";
 
-type ServiceStatus = "checking" | "ok" | "error";
+// Demo-data
+const kpiData = [
+  {
+    label: "Omsetning (mars)",
+    value: 485000,
+    format: "nok",
+    icon: TrendingUp,
+    trend: "+12% vs. forrige måned",
+    trendUp: true,
+  },
+  {
+    label: "Kostnader (mars)",
+    value: 312400,
+    format: "nok",
+    icon: TrendingDown,
+    trend: "+3% vs. forrige måned",
+    trendUp: false,
+  },
+  {
+    label: "Resultat (mars)",
+    value: 172600,
+    format: "nok",
+    icon: BarChart3,
+    trend: "+28% vs. forrige måned",
+    trendUp: true,
+  },
+  {
+    label: "Ubehandlede bilag",
+    value: 7,
+    format: "count",
+    icon: AlertCircle,
+    trend: "Trenger gjennomgang",
+    trendUp: false,
+  },
+];
 
-type ServiceInfo = {
-  name: string;
-  description: string;
-  icon: React.ElementType;
-  status: ServiceStatus;
-  detail?: string;
-};
+const agentAktiviteter: AgentAktivitet[] = [
+  {
+    type: "bokføring",
+    beskrivelse: "Bokførte faktura fra Telenor AS — 3 240 kr inkl. MVA",
+    tidspunkt: new Date("2026-03-19T09:15:00"),
+    klientId: "klient-1",
+    bilagId: "bilag-42",
+  },
+  {
+    type: "forslag",
+    beskrivelse: "Foreslår konto 6540 for reiseutgift fra Ruter AS",
+    tidspunkt: new Date("2026-03-19T08:47:00"),
+    klientId: "klient-1",
+    bilagId: "bilag-43",
+  },
+  {
+    type: "rapport",
+    beskrivelse: "Genererte MVA-rapport for periode 2026-02",
+    tidspunkt: new Date("2026-03-18T16:30:00"),
+    klientId: "klient-1",
+  },
+  {
+    type: "bokføring",
+    beskrivelse: "Bokførte 4 bilag fra Elgiganten — total 18 750 kr",
+    tidspunkt: new Date("2026-03-18T14:20:00"),
+    klientId: "klient-2",
+  },
+  {
+    type: "avstemming",
+    beskrivelse: "Bankkontoavstemming fullført for mars — 0 differanser",
+    tidspunkt: new Date("2026-03-17T11:05:00"),
+    klientId: "klient-1",
+  },
+];
+
+const ubehandledeBilag = [
+  {
+    bilagsnr: 1043,
+    beskrivelse: "Faktura — Adobe Inc.",
+    belop: 1890,
+    dato: "2026-03-18",
+    leverandor: "Adobe Inc.",
+  },
+  {
+    bilagsnr: 1044,
+    beskrivelse: "Kvittering — Kiwi 1204",
+    belop: 347,
+    dato: "2026-03-18",
+    leverandor: "Kiwi",
+  },
+  {
+    bilagsnr: 1045,
+    beskrivelse: "Faktura — Nettleie mars",
+    belop: 2140,
+    dato: "2026-03-17",
+    leverandor: "Hafslund Nett",
+  },
+];
+
+function formatNOK(value: number) {
+  return new Intl.NumberFormat("nb-NO", {
+    style: "currency",
+    currency: "NOK",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function aktivitetIkon(type: AgentAktivitet["type"]) {
+  const icons = {
+    bokføring: CheckCircle2,
+    forslag: Bot,
+    rapport: FileText,
+    epost: FileText,
+    avstemming: BarChart3,
+  };
+  return icons[type] ?? Bot;
+}
+
+function aktivitetFarge(type: AgentAktivitet["type"]) {
+  const farger = {
+    bokføring: "text-green-500",
+    forslag: "text-blue-500",
+    rapport: "text-purple-500",
+    epost: "text-orange-500",
+    avstemming: "text-teal-500",
+  };
+  return farger[type] ?? "text-muted-foreground";
+}
+
+function tidSiden(dato: Date) {
+  const diff = Math.floor((Date.now() - dato.getTime()) / 60000);
+  if (diff < 60) return `${diff} min siden`;
+  const timer = Math.floor(diff / 60);
+  if (timer < 24) return `${timer}t siden`;
+  return `${Math.floor(timer / 24)}d siden`;
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [services, setServices] = useState<ServiceInfo[]>([
-    {
-      name: "Firebase Hosting",
-      description: "Statisk hosting med CDN",
-      icon: Cloud,
-      status: "ok",
-      detail: "ketlcloud.web.app",
-    },
-    {
-      name: "Firestore",
-      description: "NoSQL database med sanntidssynk",
-      icon: Database,
-      status: "checking",
-    },
-    {
-      name: "Cloud Storage",
-      description: "Filopplasting og -lagring",
-      icon: HardDrive,
-      status: "checking",
-    },
-    {
-      name: "Cloud Functions",
-      description: "Serverless backend (Node.js 22)",
-      icon: Activity,
-      status: "checking",
-    },
-    {
-      name: "AI Logic",
-      description: "Gemini generativ AI",
-      icon: Cpu,
-      status: "checking",
-    },
-    {
-      name: "Analytics",
-      description: "Page views + custom events",
-      icon: BarChart3,
-      status: "checking",
-    },
-  ]);
-
-  function updateService(name: string, status: ServiceStatus, detail?: string) {
-    setServices((prev) =>
-      prev.map((s) => (s.name === name ? { ...s, status, detail } : s))
-    );
-  }
-
-  useEffect(() => {
-    async function checkFirestore() {
-      try {
-        const { onSnapshot, collection } = await import("firebase/firestore");
-        const { db } = await import("@/lib/firebase/firestore");
-        const unsub = onSnapshot(
-          collection(db, "notes"),
-          (snap) => {
-            updateService("Firestore", "ok", `${snap.size} dokumenter i notes`);
-            unsub();
-          },
-          () => updateService("Firestore", "error", "Kunne ikke koble til")
-        );
-      } catch {
-        updateService("Firestore", "error", "SDK-feil");
-      }
-    }
-
-    async function checkStorage() {
-      try {
-        const { ref, getDownloadURL } = await import("firebase/storage");
-        const { storage } = await import("@/lib/firebase/storage");
-        try {
-          await getDownloadURL(ref(storage, "__healthcheck__"));
-          updateService("Cloud Storage", "ok", "gs://ketlcloud.firebasestorage.app");
-        } catch (e: unknown) {
-          const err = e as { code?: string };
-          if (err.code === "storage/object-not-found") {
-            updateService("Cloud Storage", "ok", "gs://ketlcloud.firebasestorage.app");
-          } else {
-            updateService("Cloud Storage", "error", err.code || "Ukjent feil");
-          }
-        }
-      } catch {
-        updateService("Cloud Storage", "error", "SDK-feil");
-      }
-    }
-
-    async function checkFunctions() {
-      try {
-        const res = await fetch(
-          "https://health-238849700424.europe-west1.run.app"
-        );
-        const data = await res.json();
-        if (data.status === "ok") {
-          updateService("Cloud Functions", "ok", "europe-west1");
-        } else {
-          updateService("Cloud Functions", "error", "Uventet respons");
-        }
-      } catch {
-        updateService("Cloud Functions", "error", "Ikke tilgjengelig");
-      }
-    }
-
-    async function checkAI() {
-      try {
-        const { getModel } = await import("@/lib/firebase/ai");
-        const model = getModel();
-        if (model) {
-          updateService("AI Logic", "ok", "gemini-2.5-flash");
-        }
-      } catch {
-        updateService("AI Logic", "error", "Ikke konfigurert");
-      }
-    }
-
-    async function checkAnalytics() {
-      try {
-        const { getAnalyticsInstance } = await import(
-          "@/lib/firebase/analytics"
-        );
-        const instance = await getAnalyticsInstance();
-        if (instance) {
-          updateService("Analytics", "ok", "G-36LXN3WEM8");
-        } else {
-          updateService("Analytics", "error", "Ikke støttet i denne nettleseren");
-        }
-      } catch {
-        updateService("Analytics", "error", "SDK-feil");
-      }
-    }
-
-    checkFirestore();
-    checkStorage();
-    checkFunctions();
-    checkAI();
-    checkAnalytics();
-  }, []);
-
-  const allOk = services.every((s) => s.status === "ok");
-  const checking = services.some((s) => s.status === "checking");
-
-  // Placeholder-statistikk
-  const stats = [
-    { label: "Brukere", value: 0, icon: Users },
-    { label: "Dokumenter", value: 0, icon: FileText },
-    { label: "API-kall", value: 0, icon: Zap },
-  ];
 
   return (
     <div className="space-y-8">
@@ -193,181 +172,156 @@ export default function DashboardPage() {
       <SlideIn direction="up" duration={0.4}>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            Velkommen{user?.displayName ? `, ${user.displayName}` : ""}
+            God morgen{user?.displayName ? `, ${user.displayName}` : ""}
           </h1>
           <p className="text-muted-foreground">
-            Her er en oversikt over prosjektet ditt.
+            Her er regnskapsoversikten din for mars 2026.
           </p>
         </div>
       </SlideIn>
 
-      {/* Hurtigstatistikk */}
-      <StaggerList className="grid gap-4 sm:grid-cols-3" staggerDelay={0.08}>
-        {stats.map((stat) => (
-          <StaggerItem key={stat.label}>
+      {/* KPI-kort */}
+      <StaggerList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" staggerDelay={0.08}>
+        {kpiData.map((kpi) => (
+          <StaggerItem key={kpi.label}>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardDescription>{stat.label}</CardDescription>
-                <stat.icon className="h-4 w-4 text-muted-foreground" />
+                <CardDescription className="text-xs font-medium uppercase tracking-wide">
+                  {kpi.label}
+                </CardDescription>
+                <kpi.icon
+                  className={`h-4 w-4 ${kpi.trendUp ? "text-green-500" : kpi.label === "Ubehandlede bilag" ? "text-orange-500" : "text-red-500"}`}
+                />
               </CardHeader>
               <CardContent>
-                {stat.value === 0 ? (
-                  <SkeletonShimmer className="h-8 w-16" />
-                ) : (
-                  <p className="text-2xl font-bold">
-                    <AnimatedCounter value={stat.value} />
-                  </p>
-                )}
+                <p className="text-2xl font-bold">
+                  {kpi.format === "nok" ? (
+                    formatNOK(kpi.value)
+                  ) : (
+                    <AnimatedCounter value={kpi.value} />
+                  )}
+                </p>
+                <p className={`mt-1 text-xs ${kpi.trendUp ? "text-green-600" : "text-muted-foreground"}`}>
+                  {kpi.trend}
+                </p>
               </CardContent>
             </Card>
           </StaggerItem>
         ))}
       </StaggerList>
 
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Siste aktivitet */}
+        <div>
+          <SlideIn direction="up" delay={0.1}>
+            <div className="mb-4 flex items-center gap-3">
+              <h2 className="text-lg font-semibold">Siste aktivitet</h2>
+              <Badge variant="outline" className="font-mono text-xs">
+                <Bot className="mr-1.5 h-3 w-3" />
+                AI-agent
+              </Badge>
+            </div>
+          </SlideIn>
+          <StaggerList className="space-y-3" staggerDelay={0.06} initialDelay={0.15}>
+            {agentAktiviteter.map((a, i) => {
+              const Ikon = aktivitetIkon(a.type);
+              return (
+                <StaggerItem key={i}>
+                  <div className="flex items-start gap-3 rounded-lg border border-border/50 bg-card/50 px-4 py-3">
+                    <Ikon
+                      className={`mt-0.5 h-4 w-4 shrink-0 ${aktivitetFarge(a.type)}`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm">{a.beskrivelse}</p>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                      <Clock className="h-3 w-3" />
+                      {tidSiden(a.tidspunkt)}
+                    </div>
+                  </div>
+                </StaggerItem>
+              );
+            })}
+          </StaggerList>
+        </div>
+
+        {/* Bilag som trenger oppmerksomhet */}
+        <div>
+          <SlideIn direction="up" delay={0.1}>
+            <div className="mb-4 flex items-center gap-3">
+              <h2 className="text-lg font-semibold">Trenger oppmerksomhet</h2>
+              <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/30 font-mono text-xs">
+                {ubehandledeBilag.length} ubehandlet
+              </Badge>
+            </div>
+          </SlideIn>
+          <StaggerList className="space-y-3" staggerDelay={0.06} initialDelay={0.15}>
+            {ubehandledeBilag.map((b) => (
+              <StaggerItem key={b.bilagsnr}>
+                <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 px-4 py-3">
+                  <Receipt className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{b.beskrivelse}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {b.leverandor} · {b.dato}
+                    </p>
+                  </div>
+                  <div className="text-sm font-medium shrink-0">
+                    {formatNOK(b.belop)}
+                  </div>
+                </div>
+              </StaggerItem>
+            ))}
+          </StaggerList>
+          <SlideIn direction="up" delay={0.3}>
+            <p className="mt-3 text-xs text-muted-foreground">
+              + 4 flere bilag venter på bokføring.{" "}
+              <a href="/dashboard/bilag" className="text-primary underline-offset-4 hover:underline">
+                Se alle bilag →
+              </a>
+            </p>
+          </SlideIn>
+        </div>
+      </div>
+
       <Separator />
 
-      {/* Tjenestestatus */}
+      {/* Månedsoversikt */}
       <div>
         <SlideIn direction="up" delay={0.1}>
-          <div className="mb-4 flex items-center gap-3">
-            <h2 className="text-lg font-semibold">Tjenestestatus</h2>
-            <Badge variant="outline" className="font-mono text-xs">
-              {checking ? (
-                <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-              ) : allOk ? (
-                <CheckCircle2 className="mr-1.5 h-3 w-3 text-green-500" />
-              ) : (
-                <XCircle className="mr-1.5 h-3 w-3 text-red-500" />
-              )}
-              {checking
-                ? "Sjekker..."
-                : allOk
-                  ? "Alle operative"
-                  : "Problemer oppdaget"}
-            </Badge>
-          </div>
+          <h2 className="mb-4 text-lg font-semibold">Månedsoversikt 2026</h2>
         </SlideIn>
-
-        <StaggerList
-          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-          staggerDelay={0.06}
-          initialDelay={0.15}
-        >
-          {services.map((s) => (
-            <StaggerItem key={s.name}>
+        <StaggerList className="grid gap-3 sm:grid-cols-3" staggerDelay={0.05} initialDelay={0.15}>
+          {[
+            { periode: "Januar", inntekter: 410000, kostnader: 298000, bilag: 34 },
+            { periode: "Februar", inntekter: 432000, kostnader: 303000, bilag: 29 },
+            { periode: "Mars", inntekter: 485000, kostnader: 312400, bilag: 38 },
+          ].map((m) => (
+            <StaggerItem key={m.periode}>
               <Card className="border-border/50 bg-card/50">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <s.icon className="h-5 w-5 text-muted-foreground" />
-                    <StatusIndicator status={s.status} />
-                  </div>
-                  <CardTitle className="text-base">{s.name}</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">{m.periode}</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <CardDescription className="text-sm">
-                    {s.description}
-                  </CardDescription>
-                  {s.detail && (
-                    <p className="mt-2 font-mono text-xs text-muted-foreground">
-                      {s.detail}
-                    </p>
-                  )}
+                <CardContent className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Inntekter</span>
+                    <span className="text-green-600 font-medium">{formatNOK(m.inntekter)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Kostnader</span>
+                    <span className="text-red-500 font-medium">{formatNOK(m.kostnader)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t border-border/40 pt-1 mt-1">
+                    <span className="font-medium">Resultat</span>
+                    <span className="font-bold">{formatNOK(m.inntekter - m.kostnader)}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{m.bilag} bilag behandlet</p>
                 </CardContent>
               </Card>
             </StaggerItem>
           ))}
         </StaggerList>
       </div>
-
-      <Separator />
-
-      {/* API-endepunkter */}
-      <div>
-        <SlideIn direction="up" delay={0.1}>
-          <h2 className="mb-4 text-lg font-semibold">API-endepunkter</h2>
-        </SlideIn>
-        <StaggerList className="space-y-3" staggerDelay={0.05} initialDelay={0.15}>
-          <StaggerItem>
-            <Endpoint
-              method="GET"
-              path="/health"
-              url="https://health-238849700424.europe-west1.run.app"
-              description="Helsestatus for backend"
-            />
-          </StaggerItem>
-          <StaggerItem>
-            <Endpoint
-              method="GET"
-              path="/api"
-              url="https://api-238849700424.europe-west1.run.app"
-              description="API-rotendepunkt"
-            />
-          </StaggerItem>
-          <StaggerItem>
-            <Endpoint
-              method="GET"
-              path="/api/me"
-              url="https://api-238849700424.europe-west1.run.app/me"
-              description="Brukerinfo (krever token)"
-            />
-          </StaggerItem>
-          <StaggerItem>
-            <Endpoint
-              method="GET"
-              path="/api/notes"
-              url="https://api-238849700424.europe-west1.run.app/notes"
-              description="Hent notater (krever token)"
-            />
-          </StaggerItem>
-          <StaggerItem>
-            <Endpoint
-              method="POST"
-              path="/api/notes"
-              url="https://api-238849700424.europe-west1.run.app/notes"
-              description="Opprett notat (krever token)"
-            />
-          </StaggerItem>
-        </StaggerList>
-      </div>
     </div>
-  );
-}
-
-function StatusIndicator({ status }: { status: ServiceStatus }) {
-  if (status === "checking") {
-    return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
-  }
-  if (status === "ok") {
-    return <CheckCircle2 className="h-4 w-4 text-green-500" />;
-  }
-  return <XCircle className="h-4 w-4 text-red-500" />;
-}
-
-function Endpoint({
-  method,
-  path,
-  url,
-  description,
-}: {
-  method: string;
-  path: string;
-  url: string;
-  description: string;
-}) {
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-center gap-4 rounded-lg border border-border/50 bg-card/50 px-4 py-3 transition-all hover:bg-accent/50 hover:shadow-sm active:scale-[0.99]"
-    >
-      <Badge variant="secondary" className="font-mono text-xs">
-        {method}
-      </Badge>
-      <code className="text-sm">{path}</code>
-      <span className="ml-auto text-xs text-muted-foreground">
-        {description}
-      </span>
-    </a>
   );
 }

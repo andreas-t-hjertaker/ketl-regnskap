@@ -1,28 +1,24 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/firestore";
 import { updateProfile } from "firebase/auth";
-import { uploadFile } from "@/lib/firebase/storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Card,
   CardContent,
-  CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Cloud,
-  FileText,
-  BarChart3,
-  Shield,
-  Upload,
-  Loader2,
+  Receipt,
+  Building2,
+  Bot,
   Rocket,
+  CheckCircle2,
+  ArrowRight,
 } from "lucide-react";
 
 const TOTAL_STEPS = 4;
@@ -33,10 +29,9 @@ export function OnboardingStepper() {
   const [checking, setChecking] = useState(true);
   const [step, setStep] = useState(0);
 
-  // Steg 2 — profil
-  const [displayName, setDisplayName] = useState("");
-  const [avatarUploading, setAvatarUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Steg 2 — klientregistrering
+  const [firmanavn, setFirmanavn] = useState("");
+  const [orgnr, setOrgnr] = useState("");
 
   useEffect(() => {
     if (!firebaseUser) {
@@ -46,38 +41,24 @@ export function OnboardingStepper() {
 
     getDoc(doc(db, "users", firebaseUser.uid)).then((snap) => {
       if (!snap.exists() || !snap.data()?.onboardingComplete) {
-        setDisplayName(firebaseUser.displayName || "");
         setShow(true);
       }
       setChecking(false);
     });
   }, [firebaseUser]);
 
-  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !firebaseUser) return;
-    setAvatarUploading(true);
-    try {
-      const { url } = await uploadFile(`avatars/${firebaseUser.uid}`, file);
-      await updateProfile(firebaseUser, { photoURL: url });
-    } catch {
-      // Ignorer feil — brukeren kan fortsette uten bilde
-    }
-    setAvatarUploading(false);
-  }
-
   async function handleComplete() {
     if (!firebaseUser) return;
 
-    // Lagre visningsnavn hvis endret
-    if (displayName && displayName !== firebaseUser.displayName) {
-      await updateProfile(firebaseUser, { displayName });
+    // Oppdater visningsnavn med firmanavn hvis angitt
+    if (firmanavn && !firebaseUser.displayName) {
+      await updateProfile(firebaseUser, { displayName: firmanavn });
     }
 
     // Marker onboarding som fullført
     await setDoc(
       doc(db, "users", firebaseUser.uid),
-      { onboardingComplete: true },
+      { onboardingComplete: true, firmanavn, orgnr },
       { merge: true }
     );
     setShow(false);
@@ -94,8 +75,6 @@ export function OnboardingStepper() {
   }
 
   if (checking || !show) return null;
-
-  const initials = (displayName || user?.email || "?").charAt(0).toUpperCase();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
@@ -120,119 +99,113 @@ export function OnboardingStepper() {
           {/* Steg 1: Velkommen */}
           {step === 0 && (
             <div className="space-y-4 text-center">
-              <Cloud className="mx-auto h-12 w-12 text-primary" />
+              <Receipt className="mx-auto h-12 w-12 text-primary" />
               <CardTitle className="text-xl">
-                Velkommen til ketl cloud!
+                Velkommen til ketl regnskap!
               </CardTitle>
               <p className="text-muted-foreground">
-                La oss gjøre deg klar på et par minutter. Vi hjelper deg med å
-                sette opp profilen din og viser deg de viktigste funksjonene.
+                Din AI-drevne regnskapsmedarbeider er klar. La oss sette opp
+                kontoen din på et par minutter.
               </p>
+              <div className="grid gap-2 text-left pt-2">
+                {[
+                  "Automatisk bilagsbehandling med AI",
+                  "NS 4102 kontoplan innebygd",
+                  "MVA-beregning og rapportering",
+                ].map((punkt) => (
+                  <div key={punkt} className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                    {punkt}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-          {/* Steg 2: Profil */}
+          {/* Steg 2: Koble første klient */}
           {step === 1 && (
             <div className="space-y-4">
               <div className="text-center">
+                <Building2 className="mx-auto mb-3 h-10 w-10 text-primary" />
                 <CardTitle className="text-xl">
-                  Sett opp profilen din
+                  Koble din første klient
                 </CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Legg til navn og bilde så andre kan gjenkjenne deg.
+                  Skriv inn informasjon om bedriften du vil føre regnskap for.
                 </p>
               </div>
 
-              <div className="flex flex-col items-center gap-4">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage
-                    src={firebaseUser?.photoURL || undefined}
-                    alt={displayName}
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Firmanavn</label>
+                  <Input
+                    value={firmanavn}
+                    onChange={(e) => setFirmanavn(e.target.value)}
+                    placeholder="Eksempel AS"
                   />
-                  <AvatarFallback className="text-2xl">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarUpload}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={avatarUploading}
-                >
-                  {avatarUploading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="mr-2 h-4 w-4" />
-                  )}
-                  Last opp bilde
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Visningsnavn</label>
-                <Input
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Ditt navn"
-                />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Organisasjonsnummer</label>
+                  <Input
+                    value={orgnr}
+                    onChange={(e) => setOrgnr(e.target.value)}
+                    placeholder="123 456 789"
+                    maxLength={11}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    9 siffer — finn det på Brønnøysundregistrene.no
+                  </p>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Steg 3: Funksjoner */}
+          {/* Steg 3: Slik fungerer AI-bokføring */}
           {step === 2 && (
             <div className="space-y-4">
               <div className="text-center">
+                <Bot className="mx-auto mb-3 h-10 w-10 text-primary" />
                 <CardTitle className="text-xl">
-                  Utforsk nøkkelfunksjoner
+                  Slik fungerer AI-bokføring
                 </CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Her er noen av tingene du kan gjøre med ketl cloud.
+                  ketl regnskap automatiserer det meste for deg.
                 </p>
               </div>
 
               <div className="grid gap-3">
                 {[
                   {
-                    icon: FileText,
-                    title: "Dokumenter",
-                    desc: "Opprett og organiser dokumenter med sanntidslagring.",
+                    steg: "1",
+                    tittel: "Last opp bilag",
+                    beskrivelse: "Dra og slipp kvitteringer og fakturaer — PDF, JPG eller PNG.",
                   },
                   {
-                    icon: BarChart3,
-                    title: "Dashboard",
-                    desc: "Få oversikt over aktivitet og nøkkeltall.",
+                    steg: "2",
+                    tittel: "AI analyserer",
+                    beskrivelse: "Agenten leser bilaget og foreslår konto, MVA-kode og postering.",
                   },
                   {
-                    icon: Shield,
-                    title: "API-nøkler",
-                    desc: "Generer API-nøkler for integrasjoner.",
+                    steg: "3",
+                    tittel: "Godkjenn eller rediger",
+                    beskrivelse: "Du bekrefter forslaget med ett klikk, eller justerer om nødvendig.",
                   },
                   {
-                    icon: Cloud,
-                    title: "AI-assistent",
-                    desc: "Spør vår innebygde AI om hva som helst.",
+                    steg: "4",
+                    tittel: "Rapporter genereres",
+                    beskrivelse: "Resultatregnskap, balanse og MVA-rapport oppdateres automatisk.",
                   },
-                ].map((feature) => (
+                ].map((item) => (
                   <div
-                    key={feature.title}
-                    className="flex items-start gap-3 rounded-lg border p-3"
+                    key={item.steg}
+                    className="flex items-start gap-3 rounded-lg border border-border/50 p-3"
                   >
-                    <feature.icon className="mt-0.5 h-5 w-5 text-primary" />
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                      {item.steg}
+                    </div>
                     <div>
-                      <div className="text-sm font-medium">
-                        {feature.title}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {feature.desc}
-                      </div>
+                      <div className="text-sm font-medium">{item.tittel}</div>
+                      <div className="text-xs text-muted-foreground">{item.beskrivelse}</div>
                     </div>
                   </div>
                 ))}
@@ -240,15 +213,34 @@ export function OnboardingStepper() {
             </div>
           )}
 
-          {/* Steg 4: Ferdig */}
+          {/* Steg 4: Du er klar! */}
           {step === 3 && (
             <div className="space-y-4 text-center">
               <Rocket className="mx-auto h-12 w-12 text-primary" />
               <CardTitle className="text-xl">Du er klar!</CardTitle>
               <p className="text-muted-foreground">
-                Alt er satt opp. Klikk &laquo;Kom i gang&raquo; for å gå til
-                dashboardet.
+                {firmanavn
+                  ? `${firmanavn} er registrert som din første klient.`
+                  : "Kontoen din er klar til bruk."}{" "}
+                Klikk &laquo;Kom i gang&raquo; for å gå til dashboardet.
               </p>
+              <div className="rounded-lg bg-accent/30 p-4 text-left">
+                <p className="text-sm font-medium mb-2">Neste steg:</p>
+                <ul className="space-y-1 text-sm text-muted-foreground">
+                  <li className="flex items-center gap-2">
+                    <ArrowRight className="h-3.5 w-3.5 text-primary shrink-0" />
+                    Last opp ditt første bilag under &quot;Bilag&quot;
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <ArrowRight className="h-3.5 w-3.5 text-primary shrink-0" />
+                    Sjekk AI-forslagene og godkjenn bokføringen
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <ArrowRight className="h-3.5 w-3.5 text-primary shrink-0" />
+                    Se månedsoversikten under &quot;Rapporter&quot;
+                  </li>
+                </ul>
+              </div>
             </div>
           )}
         </CardContent>
