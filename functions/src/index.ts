@@ -20,6 +20,23 @@ const createNoteSchema = z.object({
   content: z.string().max(10000).optional().default(""),
 });
 
+// ─── v1: Regnskaps-API ─────────────────────────────────────────────────────
+
+const klientSchema = z.object({
+  navn: z.string().min(1).max(200),
+  orgnr: z.string().regex(/^\d{9}$/, "Organisasjonsnummer må ha 9 siffer"),
+  kontaktperson: z.string().min(1).max(200),
+  epost: z.string().email(),
+  telefon: z.string().optional(),
+  adresse: z.string().optional(),
+  bransje: z.string().optional(),
+});
+
+/** Hjelpefunksjon: hent ID fra sti som "/v1/bilag/abc123/..." */
+function pathSegment(path: string, index: number): string | undefined {
+  return path.split("/").filter(Boolean)[index];
+}
+
 // ============================================================
 // Rute-handlers
 // ============================================================
@@ -551,6 +568,215 @@ const deleteAccount = withAuth(async ({ user, res }) => {
 });
 
 // ============================================================
+// v1 — Klienter
+// ============================================================
+
+const v1ListKlienter = withAuth(async ({ user, res }) => {
+  const snap = await db.collection(`users/${user.uid}/klienter`)
+    .orderBy("opprettet", "desc").get();
+  success(res, snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+});
+
+const v1CreateKlient = withValidation(klientSchema, async ({ user, data, res }) => {
+  const ref = await db.collection(`users/${user.uid}/klienter`).add({
+    ...data,
+    opprettet: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  success(res, { id: ref.id, ...data }, 201);
+});
+
+const v1GetKlient = withAuth(async ({ user, req, res }) => {
+  const id = pathSegment(req.path, 2);
+  if (!id) return fail(res, "Mangler klient-ID", 400);
+  const snap = await db.doc(`users/${user.uid}/klienter/${id}`).get();
+  if (!snap.exists) return fail(res, "Klient ikke funnet", 404);
+  success(res, { id: snap.id, ...snap.data() });
+});
+
+const v1UpdateKlient = withValidation(klientSchema.partial(), async ({ user, req, data, res }) => {
+  const id = pathSegment(req.path, 2);
+  if (!id) return fail(res, "Mangler klient-ID", 400);
+  const ref = db.doc(`users/${user.uid}/klienter/${id}`);
+  const snap = await ref.get();
+  if (!snap.exists) return fail(res, "Klient ikke funnet", 404);
+  await ref.update({ ...data, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+  success(res, { id, ...snap.data(), ...data });
+});
+
+const v1DeleteKlient = withAuth(async ({ user, req, res }) => {
+  const id = pathSegment(req.path, 2);
+  if (!id) return fail(res, "Mangler klient-ID", 400);
+  const bilagSnap = await db.collection(`users/${user.uid}/bilag`)
+    .where("klientId", "==", id).limit(1).get();
+  if (!bilagSnap.empty) {
+    return fail(res, "Kan ikke slette klient med tilknyttede bilag", 409);
+  }
+  await db.doc(`users/${user.uid}/klienter/${id}`).delete();
+  success(res, { slettet: true });
+});
+
+// ============================================================
+// v1 — Bilag
+// ============================================================
+
+const v1ListBilag = withAuth(async ({ user, req, res }) => {
+  const { klientId, status, limit: lim } = req.query as Record<string, string>;
+  let q: FirebaseFirestore.Query = db.collection(`users/${user.uid}/bilag`);
+  if (klientId) q = q.where("klientId", "==", klientId);
+  if (status) q = q.where("status", "==", status);
+  q = q.orderBy("dato", "desc").limit(Math.min(parseInt(lim ?? "50", 10), 200));
+  const snap = await q.get();
+  success(res, snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+});
+
+const v1GetBilag = withAuth(async ({ user, req, res }) => {
+  const id = pathSegment(req.path, 2);
+  if (!id) return fail(res, "Mangler bilag-ID", 400);
+  const snap = await db.doc(`users/${user.uid}/bilag/${id}`).get();
+  if (!snap.exists) return fail(res, "Bilag ikke funnet", 404);
+  success(res, { id: snap.id, ...snap.data() });
+});
+
+const v1GodkjennBilag = withAuth(async ({ user, req, res }) => {
+  const id = pathSegment(req.path, 2);
+  if (!id) return fail(res, "Mangler bilag-ID", 400);
+  const ref = db.doc(`users/${user.uid}/bilag/${id}`);
+  const snap = await ref.get();
+  if (!snap.exists) return fail(res, "Bilag ikke funnet", 404);
+  const data = snap.data()!;
+  if (data.status !== "foreslått") return fail(res, "Bilag er ikke i status 'foreslått'", 400);
+  if (!data.aiForslag) return fail(res, "Ingen AI-forslag å godkjenne", 400);
+  await ref.update({
+    status: "bokført",
+    posteringer: data.aiForslag.posteringer,
+    kategori: data.aiForslag.foreslåttKategori,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  await db.collection(`users/${user.uid}/audit_log`).add({
+    handling: "ai_forslag_godkjent",
+    entitetType: "bilag",
+    entitetId: id,
+    utfortAv: user.uid,
+    uid: user.uid,
+    tidspunkt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  success(res, { id, status: "bokført" });
+});
+
+const v1AvvisBilag = withAuth(async ({ user, req, res }) => {
+  const id = pathSegment(req.path, 2);
+  if (!id) return fail(res, "Mangler bilag-ID", 400);
+  const ref = db.doc(`users/${user.uid}/bilag/${id}`);
+  const snap = await ref.get();
+  if (!snap.exists) return fail(res, "Bilag ikke funnet", 404);
+  await ref.update({ status: "avvist", updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+  success(res, { id, status: "avvist" });
+});
+
+const v1KrediterBilag = withAuth(async ({ user, req, res }) => {
+  const id = pathSegment(req.path, 2);
+  if (!id) return fail(res, "Mangler bilag-ID", 400);
+  const ref = db.doc(`users/${user.uid}/bilag/${id}`);
+  const snap = await ref.get();
+  if (!snap.exists) return fail(res, "Bilag ikke funnet", 404);
+  const original = snap.data()!;
+  if (original.status !== "bokført") return fail(res, "Kun bokførte bilag kan krediteres", 400);
+  if (original.kreditertAvId) return fail(res, "Bilaget er allerede kreditert", 409);
+
+  // Hent neste bilagsnummer via transaksjon
+  const år = parseInt((original.dato as string).slice(0, 4), 10);
+  const tellerRef = db.doc(`users/${user.uid}/counters/bilag_${år}`);
+  const bilagsnr = await db.runTransaction(async (tx) => {
+    const teller = await tx.get(tellerRef);
+    const neste = (teller.exists ? (teller.data()!.siste as number) : 1000) + 1;
+    tx.set(tellerRef, { siste: neste, oppdatert: admin.firestore.FieldValue.serverTimestamp() });
+    return neste;
+  });
+
+  const reversertePosteringer = (original.posteringer as Array<Record<string, unknown>>).map((p) => ({
+    ...p,
+    debet: p.kredit,
+    kredit: p.debet,
+    beskrivelse: `Kreditering av bilag #${original.bilagsnr}`,
+  }));
+  const korRef = await db.collection(`users/${user.uid}/bilag`).add({
+    bilagsnr,
+    dato: new Date().toISOString().slice(0, 10),
+    beskrivelse: `Kreditering av bilag #${original.bilagsnr} — ${original.beskrivelse}`,
+    belop: -(original.belop as number),
+    klientId: original.klientId,
+    status: "bokført",
+    kategori: original.kategori,
+    leverandor: original.leverandor,
+    posteringer: reversertePosteringer,
+    korrigererBilagId: id,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  await ref.update({
+    status: "kreditert",
+    kreditertAvId: korRef.id,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  success(res, { originalId: id, korrigeringId: korRef.id, bilagsnr }, 201);
+});
+
+// ============================================================
+// v1 — Rapporter (server-side beregning)
+// ============================================================
+
+const v1Resultat = withAuth(async ({ user, req, res }) => {
+  const { periode, klientId } = req.query as Record<string, string>;
+  let q: FirebaseFirestore.Query = db.collection(`users/${user.uid}/bilag`)
+    .where("status", "==", "bokført");
+  if (klientId) q = q.where("klientId", "==", klientId);
+  const snap = await q.get();
+
+  type PosteRad = { kontonr: string; kontonavn: string; debet: number; kredit: number; dato: string };
+
+  const posteringer: PosteRad[] = snap.docs.flatMap((d) => {
+    const b = d.data();
+    return ((b.posteringer ?? []) as PosteRad[]).map((p) => ({
+      ...p,
+      dato: b.dato as string,
+    }));
+  });
+
+  const filtrert = periode
+    ? posteringer.filter((p) => p.dato.startsWith(periode))
+    : posteringer;
+
+  const kontoMap = new Map<string, { navn: string; netto: number }>();
+  for (const p of filtrert) {
+    const netto = (p.debet ?? 0) - (p.kredit ?? 0);
+    const existing = kontoMap.get(p.kontonr);
+    if (existing) existing.netto += netto;
+    else kontoMap.set(p.kontonr, { navn: p.kontonavn, netto });
+  }
+
+  const inntekter: Array<Record<string, unknown>> = [];
+  const kostnader: Array<Record<string, unknown>> = [];
+  for (const [konto, { navn, netto }] of kontoMap.entries()) {
+    const cls = konto[0];
+    if (cls === "3" && netto !== 0) inntekter.push({ konto, navn, belop: Math.abs(netto) });
+    else if (["4", "5", "6", "7", "8"].includes(cls) && netto !== 0) kostnader.push({ konto, navn, belop: Math.abs(netto) });
+  }
+  const totalInntekter = inntekter.reduce((s, r) => s + (r.belop as number), 0);
+  const totalKostnader = kostnader.reduce((s, r) => s + (r.belop as number), 0);
+
+  success(res, {
+    periode: periode ?? "alt",
+    driftsinntekter: inntekter.sort((a, b) => (a.konto as string).localeCompare(b.konto as string)),
+    driftskostnader: kostnader.sort((a, b) => (a.konto as string).localeCompare(b.konto as string)),
+    totalInntekter,
+    totalKostnader,
+    resultat: totalInntekter - totalKostnader,
+  });
+});
+
+// ============================================================
 // Ruter — enkel stibasert ruting
 // ============================================================
 
@@ -564,29 +790,32 @@ type Route = {
 const apiRateLimit = rateLimit(100, 60_000);
 
 const routes: Route[] = [
-  { method: "GET", path: "/", handler: getRoot },
-  { method: "GET", path: "/collections", handler: getCollections },
-  { method: "GET", path: "/me", handler: getMe },
-  { method: "POST", path: "/notes", handler: createNote },
-  { method: "GET", path: "/notes", handler: getNotes },
+  { method: "GET",    path: "/",                    handler: getRoot },
+  { method: "GET",    path: "/collections",         handler: getCollections },
+  { method: "GET",    path: "/me",                  handler: getMe },
+  { method: "POST",   path: "/notes",               handler: createNote },
+  { method: "GET",    path: "/notes",               handler: getNotes },
   // Stripe
-  { method: "POST", path: "/stripe/checkout", handler: createCheckout },
-  { method: "POST", path: "/stripe/portal", handler: createPortal },
-  { method: "POST", path: "/stripe/webhook", handler: handleWebhook },
+  { method: "POST",   path: "/stripe/checkout",     handler: createCheckout },
+  { method: "POST",   path: "/stripe/portal",       handler: createPortal },
+  { method: "POST",   path: "/stripe/webhook",      handler: handleWebhook },
   // API-nøkler
-  { method: "GET", path: "/api-keys", handler: listApiKeys },
-  { method: "POST", path: "/api-keys", handler: createApiKey },
-  // DELETE /api-keys/:id håndteres med startsWith-matching under
+  { method: "GET",    path: "/api-keys",            handler: listApiKeys },
+  { method: "POST",   path: "/api-keys",            handler: createApiKey },
   // Admin
-  { method: "POST", path: "/admin/set-role", handler: setAdminRole },
-  { method: "GET", path: "/admin/users", handler: listAdminUsers },
-  { method: "GET", path: "/admin/stats", handler: getAdminStats },
-  { method: "GET", path: "/admin/feature-flags", handler: listFeatureFlags },
-  { method: "POST", path: "/admin/feature-flags", handler: createFeatureFlag },
-  // GET /admin/users/:uid, POST /admin/users/:uid/disable, DELETE /admin/users/:uid,
-  // PUT /admin/feature-flags/:id — håndteres med startsWith-matching under
+  { method: "POST",   path: "/admin/set-role",      handler: setAdminRole },
+  { method: "GET",    path: "/admin/users",         handler: listAdminUsers },
+  { method: "GET",    path: "/admin/stats",         handler: getAdminStats },
+  { method: "GET",    path: "/admin/feature-flags", handler: listFeatureFlags },
+  { method: "POST",   path: "/admin/feature-flags", handler: createFeatureFlag },
   // Konto
-  { method: "DELETE", path: "/account", handler: deleteAccount },
+  { method: "DELETE", path: "/account",             handler: deleteAccount },
+  // ─── v1 Regnskaps-API ──────────────────────────────────────────────────────
+  { method: "GET",    path: "/v1/klienter",         handler: v1ListKlienter },
+  { method: "POST",   path: "/v1/klienter",         handler: v1CreateKlient },
+  { method: "GET",    path: "/v1/bilag",            handler: v1ListBilag },
+  { method: "GET",    path: "/v1/rapporter/resultat", handler: v1Resultat },
+  // Parametriserte v1-ruter håndteres med startsWith-matching i api-funksjonen
 ];
 
 // ============================================================
@@ -887,6 +1116,32 @@ export const api = onRequest(
     if (req.method === "PUT" && req.path.startsWith("/admin/feature-flags/")) {
       await updateFeatureFlag({ req, res });
       return;
+    }
+
+    // ─── v1 Klienter: GET/PUT/DELETE /v1/klienter/:id ───────────────────────
+    if (req.path.startsWith("/v1/klienter/")) {
+      const tail = req.path.slice("/v1/klienter/".length);
+      // Avvis tom ID
+      if (!tail || tail === "") { fail(res, "Mangler klient-ID", 400); return; }
+      if (req.method === "GET") { await v1GetKlient({ req, res }); return; }
+      if (req.method === "PUT") { await v1UpdateKlient({ req, res }); return; }
+      if (req.method === "DELETE") { await v1DeleteKlient({ req, res }); return; }
+    }
+
+    // ─── v1 Bilag: GET/PATCH/POST /v1/bilag/:id/... ─────────────────────────
+    if (req.path.startsWith("/v1/bilag/")) {
+      if (req.method === "GET" && !req.path.includes("/", "/v1/bilag/".length)) {
+        await v1GetBilag({ req, res }); return;
+      }
+      if (req.method === "PATCH" && req.path.endsWith("/godkjenn")) {
+        await v1GodkjennBilag({ req, res }); return;
+      }
+      if (req.method === "PATCH" && req.path.endsWith("/avvis")) {
+        await v1AvvisBilag({ req, res }); return;
+      }
+      if (req.method === "POST" && req.path.endsWith("/krediter")) {
+        await v1KrediterBilag({ req, res }); return;
+      }
     }
 
     fail(res, "Ikke funnet", 404);
