@@ -2,6 +2,8 @@
 // Kildegrunnlag: Norsk Standard NS 4102
 
 import type { Konto } from "@/types";
+export type { MvaKode, MvaType, MvaSats } from "@/lib/mva-koder";
+export { MVA_KODER, MVA_KODER_VANLIGE, finnMvaKode, defaultMvaKodeForKonto } from "@/lib/mva-koder";
 
 export type KontoMedGruppe = Konto & {
   gruppe: string;
@@ -46,12 +48,12 @@ export const NS4102_KONTOPLAN: KontoMedGruppe[] = [
   { nummer: "2600", navn: "Skattetrekk og arbeidsgiveravgift", type: "gjeld", gruppe: "Kortsiktig gjeld", aktiv: true },
   { nummer: "2610", navn: "Skyldig arbeidsgiveravgift", type: "gjeld", gruppe: "Kortsiktig gjeld", aktiv: true },
   { nummer: "2700", navn: "Skyldig MVA", type: "gjeld", gruppe: "MVA", aktiv: true },
-  { nummer: "2710", navn: "Inngående MVA, høy sats (25%)", type: "gjeld", mvaKode: "25", gruppe: "MVA", aktiv: true },
-  { nummer: "2711", navn: "Inngående MVA, middels sats (15%)", type: "gjeld", mvaKode: "15", gruppe: "MVA", aktiv: true },
+  { nummer: "2710", navn: "Inngående MVA, høy sats (25%)", type: "gjeld", mvaKode: "1",  gruppe: "MVA", aktiv: true },
+  { nummer: "2711", navn: "Inngående MVA, middels sats (15%)", type: "gjeld", mvaKode: "11", gruppe: "MVA", aktiv: true },
   { nummer: "2712", navn: "Inngående MVA, lav sats (12%)", type: "gjeld", mvaKode: "12", gruppe: "MVA", aktiv: true },
-  { nummer: "2740", navn: "Utgående MVA, høy sats (25%)", type: "gjeld", mvaKode: "3", gruppe: "MVA", aktiv: true },
-  { nummer: "2741", navn: "Utgående MVA, middels sats (15%)", type: "gjeld", mvaKode: "5", gruppe: "MVA", aktiv: true },
-  { nummer: "2742", navn: "Utgående MVA, lav sats (12%)", type: "gjeld", mvaKode: "6", gruppe: "MVA", aktiv: true },
+  { nummer: "2740", navn: "Utgående MVA, høy sats (25%)", type: "gjeld", mvaKode: "3",  gruppe: "MVA", aktiv: true },
+  { nummer: "2741", navn: "Utgående MVA, middels sats (15%)", type: "gjeld", mvaKode: "5",  gruppe: "MVA", aktiv: true },
+  { nummer: "2742", navn: "Utgående MVA, lav sats (12%)", type: "gjeld", mvaKode: "6",  gruppe: "MVA", aktiv: true },
   { nummer: "2800", navn: "Annen kortsiktig gjeld", type: "gjeld", gruppe: "Kortsiktig gjeld", aktiv: true },
   { nummer: "2900", navn: "Avsatte feriepenger", type: "gjeld", gruppe: "Kortsiktig gjeld", aktiv: true },
   { nummer: "2910", navn: "Skyldig lønn", type: "gjeld", gruppe: "Kortsiktig gjeld", aktiv: true },
@@ -70,11 +72,11 @@ export const NS4102_KONTOPLAN: KontoMedGruppe[] = [
   { nummer: "3900", navn: "Andre driftsinntekter", type: "inntekt", gruppe: "Driftsinntekter", aktiv: true },
 
   // ─── Klasse 4: Varekostnad ──────────────────────────────────────────────────
-  { nummer: "4000", navn: "Innkjøp av råvarer og halvfabrikata", type: "kostnad", mvaKode: "25", gruppe: "Varekostnad", aktiv: true },
-  { nummer: "4100", navn: "Innkjøp av handelsvarer", type: "kostnad", mvaKode: "25", gruppe: "Varekostnad", aktiv: true },
+  { nummer: "4000", navn: "Innkjøp av råvarer og halvfabrikata", type: "kostnad", mvaKode: "1", gruppe: "Varekostnad", aktiv: true },
+  { nummer: "4100", navn: "Innkjøp av handelsvarer", type: "kostnad", mvaKode: "1", gruppe: "Varekostnad", aktiv: true },
   { nummer: "4300", navn: "Beholdningsendring ferdigvarer", type: "kostnad", gruppe: "Varekostnad", aktiv: true },
-  { nummer: "4500", navn: "Fremmedytelser og underentreprenører", type: "kostnad", mvaKode: "25", gruppe: "Varekostnad", aktiv: true },
-  { nummer: "4600", navn: "Frakt og transportkostnader", type: "kostnad", mvaKode: "25", gruppe: "Varekostnad", aktiv: true },
+  { nummer: "4500", navn: "Fremmedytelser og underentreprenører", type: "kostnad", mvaKode: "1", gruppe: "Varekostnad", aktiv: true },
+  { nummer: "4600", navn: "Frakt og transportkostnader", type: "kostnad", mvaKode: "1", gruppe: "Varekostnad", aktiv: true },
 
   // ─── Klasse 5: Lønnskostnader ────────────────────────────────────────────────
   { nummer: "5000", navn: "Lønn til ansatte", type: "kostnad", gruppe: "Lønnskostnader", aktiv: true },
@@ -93,31 +95,31 @@ export const NS4102_KONTOPLAN: KontoMedGruppe[] = [
   // ─── Klasse 6: Av- og nedskrivninger + andre driftskostnader ────────────────
   { nummer: "6000", navn: "Avskrivning på varige driftsmidler", type: "kostnad", gruppe: "Av- og nedskrivninger", aktiv: true },
   { nummer: "6010", navn: "Avskrivning på immaterielle eiendeler", type: "kostnad", gruppe: "Av- og nedskrivninger", aktiv: true },
-  { nummer: "6100", navn: "Frakt og transport", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "6200", navn: "Eiendomskostnader", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "6100", navn: "Frakt og transport", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "6200", navn: "Eiendomskostnader", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
   { nummer: "6210", navn: "Husleie", type: "kostnad", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "6300", navn: "Leie av maskiner og annet utstyr", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "6340", navn: "Leie av bil", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "6400", navn: "Reparasjon og vedlikehold", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "6500", navn: "Verktøy, inventar og driftsmateriell", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "6540", navn: "Reisekostnader, ikke ansatte", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "6600", navn: "Kontorkostnader", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "6700", navn: "Trykksaker og kontorrekvisita", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "6720", navn: "Aviser og tidsskrifter", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "6730", navn: "Strøm, fyring og vann", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "6740", navn: "Renovasjon, vann og avløp", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "6800", navn: "Reklame og annonse", type: "kostnad", mvaKode: "25", gruppe: "Salgs- og markedsføringskostnader", aktiv: true },
-  { nummer: "6860", navn: "Programvare og lisenser", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "6900", navn: "Telekommunikasjon", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "6940", navn: "Porto og frakt", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "6300", navn: "Leie av maskiner og annet utstyr", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "6340", navn: "Leie av bil", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "6400", navn: "Reparasjon og vedlikehold", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "6500", navn: "Verktøy, inventar og driftsmateriell", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "6540", navn: "Reisekostnader, ikke ansatte", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "6600", navn: "Kontorkostnader", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "6700", navn: "Trykksaker og kontorrekvisita", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "6720", navn: "Aviser og tidsskrifter", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "6730", navn: "Strøm, fyring og vann", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "6740", navn: "Renovasjon, vann og avløp", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "6800", navn: "Reklame og annonse", type: "kostnad", mvaKode: "1", gruppe: "Salgs- og markedsføringskostnader", aktiv: true },
+  { nummer: "6860", navn: "Programvare og lisenser", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "6900", navn: "Telekommunikasjon", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "6940", navn: "Porto og frakt", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
 
   // ─── Klasse 7: Andre driftskostnader ────────────────────────────────────────
-  { nummer: "7000", navn: "Driftsmateriell og forbruksartikler", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "7100", navn: "Frakt og transportkostnader, viderefakturert", type: "kostnad", mvaKode: "25", gruppe: "Andre driftskostnader", aktiv: true },
-  { nummer: "7320", navn: "Revisjon og regnskapshjelp", type: "kostnad", mvaKode: "25", gruppe: "Administrativt", aktiv: true },
-  { nummer: "7350", navn: "Juridisk bistand", type: "kostnad", mvaKode: "25", gruppe: "Administrativt", aktiv: true },
+  { nummer: "7000", navn: "Driftsmateriell og forbruksartikler", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "7100", navn: "Frakt og transportkostnader, viderefakturert", type: "kostnad", mvaKode: "1", gruppe: "Andre driftskostnader", aktiv: true },
+  { nummer: "7320", navn: "Revisjon og regnskapshjelp", type: "kostnad", mvaKode: "1", gruppe: "Administrativt", aktiv: true },
+  { nummer: "7350", navn: "Juridisk bistand", type: "kostnad", mvaKode: "1", gruppe: "Administrativt", aktiv: true },
   { nummer: "7400", navn: "Kontingenter", type: "kostnad", gruppe: "Administrativt", aktiv: true },
-  { nummer: "7410", navn: "Faglig oppdatering", type: "kostnad", mvaKode: "25", gruppe: "Administrativt", aktiv: true },
+  { nummer: "7410", navn: "Faglig oppdatering", type: "kostnad", mvaKode: "1", gruppe: "Administrativt", aktiv: true },
   { nummer: "7500", navn: "Forsikringspremier", type: "kostnad", gruppe: "Administrativt", aktiv: true },
   { nummer: "7700", navn: "Garantikostnader", type: "kostnad", gruppe: "Andre driftskostnader", aktiv: true },
   { nummer: "7770", navn: "Bank- og finanskostnader", type: "kostnad", gruppe: "Finanskostnader", aktiv: true },

@@ -599,7 +599,7 @@ const routes: Route[] = [
 
 const SYSTEM_PROMPT = `Du er en norsk regnskapsassistent med ekspertkunnskap i:
 - Norsk regnskapsstandard NS 4102 (kontoplan)
-- MVA-regler (25%, 15%, 12%, 0%)
+- SAF-T MVA-kodesystem (Skatteetatens standard)
 - Regnskapsloven og bokføringsloven
 
 Din oppgave er å analysere bilag (kvitteringer, fakturaer, etc.) og foreslå riktige posteringer.
@@ -611,13 +611,26 @@ Regler for posteringer:
 - Inngående MVA 15% → konto 2711
 - Inngående MVA 12% → konto 2712
 
+SAF-T MVA-koder (bruk disse i "mvaKode"-feltet):
+- "0"  → Unntatt MVA / ingen MVA
+- "1"  → Innenlands kjøp, høy sats 25% (inngående)
+- "11" → Innenlands kjøp, middels sats 15% (inngående)
+- "12" → Innenlands kjøp, lav sats 12% (inngående)
+- "3"  → Innenlands salg, høy sats 25% (utgående)
+- "5"  → Innenlands salg, middels sats 15% (utgående)
+- "6"  → Innenlands salg, lav sats 12% (utgående)
+- "81" → Kjøp fra utlandet, 25%
+- "87" → Kjøp av tjenester fra utlandet, 25%
+
+Inkluder "mvaKode" på kostnads- og inntektslinjer. Utelat "mvaKode" der det er 0%.
+
 Returner ALLTID et gyldig JSON-objekt (ingen markdown, ingen forklarende tekst rundt JSON).
 
 Format:
 {
   "posteringer": [
-    { "kontonr": "6860", "kontonavn": "Programvare og lisenser", "debet": 1992, "kredit": 0, "mvaKode": "25" },
-    { "kontonr": "2710", "kontonavn": "Inngående MVA", "debet": 498, "kredit": 0 },
+    { "kontonr": "6860", "kontonavn": "Programvare og lisenser", "debet": 1992, "kredit": 0, "mvaKode": "1" },
+    { "kontonr": "2710", "kontonavn": "Inngående MVA 25%", "debet": 498, "kredit": 0 },
     { "kontonr": "2400", "kontonavn": "Leverandørgjeld", "debet": 0, "kredit": 2490 }
   ],
   "begrunnelse": "Forklaring på valgene",
