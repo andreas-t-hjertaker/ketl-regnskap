@@ -84,6 +84,11 @@ export function useBilag(uid: string | null, klientId?: string | null) {
   const deleteBilag = useCallback(
     async (id: string): Promise<void> => {
       if (!uid || !path) return;
+      const b = bilag.find((x) => x.id === id);
+      if (b && b.status !== "ubehandlet" && b.status !== "avvist") {
+        showToast.error("Bokførte bilag kan ikke slettes. Opprett et korrigeringsbilag.");
+        return;
+      }
       try {
         await deleteDocument(path, id);
         await loggHandling(uid, "bilag_slettet", "bilag", id);
@@ -92,7 +97,63 @@ export function useBilag(uid: string | null, klientId?: string | null) {
         showToast.error("Klarte ikke slette bilag.");
       }
     },
-    [uid, path]
+    [uid, path, bilag]
+  );
+
+  /**
+   * Krediterer et bokført bilag ved å:
+   * 1. Opprette et nytt korrigeringsbilag med reverserte posteringer
+   * 2. Merke originalbilag som "kreditert"
+   * Oppfyller Bokføringsloven § 9.
+   */
+  const krediterBilag = useCallback(
+    async (id: string): Promise<void> => {
+      if (!uid || !path) return;
+      const original = bilag.find((x) => x.id === id);
+      if (!original) return;
+      if (original.status !== "bokført") {
+        showToast.error("Kun bokførte bilag kan krediteres.");
+        return;
+      }
+      if (original.kreditertAvId) {
+        showToast.error("Dette bilaget er allerede kreditert.");
+        return;
+      }
+      try {
+        const år = original.dato ? parseInt(original.dato.slice(0, 4), 10) : undefined;
+        const bilagsnr = await nestebilagsnummer(uid, år);
+        const reversertePosteringer = original.posteringer.map((p) => ({
+          ...p,
+          debet: p.kredit,
+          kredit: p.debet,
+          beskrivelse: `Kreditering av bilag #${original.bilagsnr}`,
+        }));
+        const korrigeringRef = await addDocument(path, {
+          bilagsnr,
+          dato: new Date().toISOString().slice(0, 10),
+          beskrivelse: `Kreditering av bilag #${original.bilagsnr} — ${original.beskrivelse}`,
+          belop: -original.belop,
+          klientId: original.klientId,
+          status: "bokført",
+          kategori: original.kategori,
+          leverandor: original.leverandor,
+          posteringer: reversertePosteringer,
+          korrigererBilagId: id,
+        });
+        await updateDocument(path, id, {
+          status: "kreditert",
+          kreditertAvId: korrigeringRef.id,
+        });
+        await loggHandling(uid, "bilag_kreditert", "bilag", id, {
+          korrigeringId: korrigeringRef.id,
+          korrigeringBilagsnr: bilagsnr,
+        });
+        showToast.success(`Korrigeringsbilag #${bilagsnr} opprettet.`);
+      } catch {
+        showToast.error("Klarte ikke kreditere bilag.");
+      }
+    },
+    [uid, path, bilag]
   );
 
   const godkjennBilag = useCallback(
@@ -144,6 +205,7 @@ export function useBilag(uid: string | null, klientId?: string | null) {
     addBilag,
     updateBilag,
     deleteBilag,
+    krediterBilag,
     godkjennBilag,
     avvisBilag,
     getBilagByStatus,

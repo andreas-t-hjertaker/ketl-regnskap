@@ -61,7 +61,9 @@ service cloud.firestore {
           !request.resource.data.keys().hasAny(['klientId']) ||
           request.resource.data.klientId is string
         );
-        allow delete: if erEier(uid);
+        // Bokføringsloven § 9: bokførte og krediterte bilag kan ikke slettes
+        allow delete: if erEier(uid) &&
+          resource.data.status in ["ubehandlet", "avvist"];
       }
 
       // Revisjonslogg — kun lesing for bruker, Cloud Functions kan skrive

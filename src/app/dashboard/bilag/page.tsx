@@ -22,6 +22,7 @@ import {
   AlertCircle,
   Eye,
   ExternalLink,
+  RotateCcw,
 } from "lucide-react";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
@@ -45,6 +46,7 @@ const statusBadge: Record<Bilag["status"], { label: string; variant: "default" |
   foreslått: { label: "Foreslått", variant: "secondary" },
   ubehandlet: { label: "Ubehandlet", variant: "outline" },
   avvist: { label: "Avvist", variant: "destructive" },
+  kreditert: { label: "Kreditert", variant: "outline" },
 };
 
 const statusIkon: Record<Bilag["status"], React.ElementType> = {
@@ -52,6 +54,7 @@ const statusIkon: Record<Bilag["status"], React.ElementType> = {
   foreslått: Bot,
   ubehandlet: Clock,
   avvist: XCircle,
+  kreditert: RotateCcw,
 };
 
 function formatNOK(value: number) {
@@ -65,7 +68,7 @@ function formatNOK(value: number) {
 
 export default function BilagPage() {
   const { user } = useAuth();
-  const { bilag, loading, godkjennBilag, avvisBilag } = useBilag(user?.uid ?? null);
+  const { bilag, loading, godkjennBilag, avvisBilag, krediterBilag } = useBilag(user?.uid ?? null);
   const { uploadFlere, lasterOpp, fremdrift } = useBilagUpload(user?.uid ?? null);
   const [dragOver, setDragOver] = useState(false);
   const [selectedBilag, setSelectedBilag] = useState<BilagMedId | null>(null);
@@ -331,8 +334,29 @@ export default function BilagPage() {
                     ? "AI-analyse pågår. Kom tilbake om litt."
                     : selectedBilag.status === "bokført"
                     ? "Dette bilaget er bokført."
+                    : selectedBilag.status === "kreditert"
+                    ? "Dette bilaget er kreditert og reversert."
                     : "Dette bilaget er avvist."}
                 </p>
+                {selectedBilag.status === "bokført" && !selectedBilag.kreditertAvId && (
+                  <div className="mt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive border-destructive/30 hover:bg-destructive/5"
+                      onClick={async () => {
+                        await krediterBilag(selectedBilag.id);
+                        setSelectedBilag(null);
+                      }}
+                    >
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      Kreditér bilag
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Oppretter et korrigeringsbilag med reverserte posteringer (Bokfl. § 9).
+                    </p>
+                  </div>
+                )}
                 {selectedBilag.posteringer.length > 0 && (
                   <div className="mt-3 rounded-lg border border-border/50 overflow-hidden">
                     <table className="w-full text-sm">

@@ -101,12 +101,16 @@ export type Bilag = {
   beskrivelse: string;
   belop: number;        // beløp i NOK
   klientId: string;
-  status: "ubehandlet" | "foreslått" | "bokført" | "avvist";
+  status: "ubehandlet" | "foreslått" | "bokført" | "avvist" | "kreditert";
   kategori?: string;
   leverandor?: string;
   vedleggUrl?: string;  // Firebase Storage URL for kvittering/faktura
   posteringer: Postering[];
   aiForslag?: AiForslag;
+  /** ID til korrigeringsbilag som reverserer dette bilaget */
+  kreditertAvId?: string;
+  /** ID til originalbilag som dette bilaget reverserer */
+  korrigererBilagId?: string;
 };
 
 /** Postering (debet/kredit-linje i et bilag) */
