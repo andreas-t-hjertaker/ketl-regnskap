@@ -140,13 +140,13 @@ export function useRapporter(uid: string | null, klientId?: string | null) {
       }
       const termin = terminMap.get(terminKey)!;
 
-      // Utgående MVA: kontoer 274x
+      // Utgående MVA: kontoer 274x — netto kredit (kredit − debet) for å håndtere korrigeringer
       if (p.kontonr.startsWith("274")) {
-        termin.utgående += p.kredit ?? 0;
+        termin.utgående += (p.kredit ?? 0) - (p.debet ?? 0);
       }
-      // Inngående MVA: kontoer 271x
+      // Inngående MVA: kontoer 271x — netto debet (debet − kredit) for å håndtere korrigeringer
       if (p.kontonr.startsWith("271")) {
-        termin.inngående += p.debet ?? 0;
+        termin.inngående += (p.debet ?? 0) - (p.kredit ?? 0);
       }
     }
 
