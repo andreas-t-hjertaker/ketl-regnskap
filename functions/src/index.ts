@@ -1432,31 +1432,31 @@ export const arkiverGamleBilag = onSchedule(
 
       if (snap.empty) continue;
 
-      const batch = db.batch();
       const auditRef = userRef.collection("audit_log");
-
-      for (const doc of snap.docs) {
-        batch.update(doc.ref, {
-          status: "arkivert",
-          arkivertDato,
-        });
-        batch.set(auditRef.doc(), {
-          handling: "bilag_arkivert",
-          entitetType: "bilag",
-          entitetId: doc.id,
-          utfortAv: "system",
-          uid: userRef.id,
-          detaljer: {
-            bilagsnr: doc.data().bilagsnr,
-            dato: doc.data().dato,
-            cutoffDato: cutoffIso,
-          },
-          tidspunkt: now,
-        });
-        totalt++;
+      // Firestore batch-grense er 500 operasjoner; hvert bilag gir 2 → maks 250 per batch
+      const BATCH_SIZE = 250;
+      for (let i = 0; i < snap.docs.length; i += BATCH_SIZE) {
+        const chunk = snap.docs.slice(i, i + BATCH_SIZE);
+        const batch = db.batch();
+        for (const doc of chunk) {
+          batch.update(doc.ref, { status: "arkivert", arkivertDato });
+          batch.set(auditRef.doc(), {
+            handling: "bilag_arkivert",
+            entitetType: "bilag",
+            entitetId: doc.id,
+            utfortAv: "system",
+            uid: userRef.id,
+            detaljer: {
+              bilagsnr: doc.data().bilagsnr,
+              dato: doc.data().dato,
+              cutoffDato: cutoffIso,
+            },
+            tidspunkt: now,
+          });
+          totalt++;
+        }
+        await batch.commit();
       }
-
-      await batch.commit();
     }
 
     console.log(`[arkiverGamleBilag] Arkiverte ${totalt} bilag eldre enn ${cutoffIso}`);
