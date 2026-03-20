@@ -85,7 +85,7 @@ export function useBilag(uid: string | null, klientId?: string | null) {
     async (id: string): Promise<void> => {
       if (!uid || !path) return;
       const b = bilag.find((x) => x.id === id);
-      if (b && b.status !== "ubehandlet" && b.status !== "avvist" && b.status !== "arkivert") {
+      if (b && b.status !== "ubehandlet" && b.status !== "foreslått" && b.status !== "avvist" && b.status !== "arkivert") {
         showToast.error("Bokførte bilag kan ikke slettes. Opprett et korrigeringsbilag.");
         return;
       }
