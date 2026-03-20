@@ -724,7 +724,7 @@ const v1CreateBilag = withValidation(bilagSchema, async ({ user, data, res }) =>
     handling: "bilag_opprettet",
     entitetType: "bilag",
     entitetId: ref.id,
-    utfortAv: user.uid,
+    utfortAv: "bruker",
     uid: user.uid,
     detaljer: { bilagsnr, beskrivelse: data.beskrivelse, belop: data.belop },
     tidspunkt: admin.firestore.FieldValue.serverTimestamp(),
@@ -759,7 +759,7 @@ const v1GodkjennBilag = withAuth(async ({ user, req, res }) => {
     handling: "ai_forslag_godkjent",
     entitetType: "bilag",
     entitetId: id,
-    utfortAv: user.uid,
+    utfortAv: "bruker",
     uid: user.uid,
     tidspunkt: admin.firestore.FieldValue.serverTimestamp(),
   });
