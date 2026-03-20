@@ -79,7 +79,7 @@ function formatNOK(value: number) {
 export default function BilagPage() {
   const { user } = useAuth();
   const { aktivKlientId } = useAktivKlient();
-  const { bilag, loading, updateBilag, deleteBilag, godkjennBilag, avvisBilag, krediterBilag } = useBilag(user?.uid ?? null, aktivKlientId);
+  const { bilag, loading, deleteBilag, bokforBilag, godkjennBilag, avvisBilag, krediterBilag } = useBilag(user?.uid ?? null, aktivKlientId);
   const { motparter } = useMotparter(user?.uid ?? null);
   const { uploadFlere, lasterOpp, fremdrift } = useBilagUpload(user?.uid ?? null, aktivKlientId);
   const [dragOver, setDragOver] = useState(false);
@@ -379,7 +379,7 @@ export default function BilagPage() {
                       <Button
                         size="sm"
                         onClick={async () => {
-                          await updateBilag(selectedBilag.id, { status: "bokført" });
+                          await bokforBilag(selectedBilag.id);
                           setSelectedBilag(null);
                         }}
                       >

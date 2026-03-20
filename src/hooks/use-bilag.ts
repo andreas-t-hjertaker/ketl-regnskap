@@ -156,6 +156,20 @@ export function useBilag(uid: string | null, klientId?: string | null) {
     [uid, path, bilag]
   );
 
+  const bokforBilag = useCallback(
+    async (id: string): Promise<void> => {
+      if (!uid || !path) return;
+      try {
+        await updateDocument(path, id, { status: "bokført" });
+        await loggHandling(uid, "bilag_bokfort", "bilag", id);
+        showToast.success("Bilag bokført.");
+      } catch {
+        showToast.error("Klarte ikke bokføre bilag.");
+      }
+    },
+    [uid, path]
+  );
+
   const godkjennBilag = useCallback(
     async (id: string): Promise<void> => {
       if (!uid || !path) return;
@@ -206,6 +220,7 @@ export function useBilag(uid: string | null, klientId?: string | null) {
     updateBilag,
     deleteBilag,
     krediterBilag,
+    bokforBilag,
     godkjennBilag,
     avvisBilag,
     getBilagByStatus,
