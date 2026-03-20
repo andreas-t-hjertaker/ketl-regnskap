@@ -35,19 +35,19 @@ export default function NotaterPage() {
 
   async function handleOpprett() {
     if (!tittel.trim()) {
-      showToast("error", "Tittel er påkrevd.");
+      showToast.error("Tittel er påkrevd.");
       return;
     }
     setLagrer(true);
     const note = await createNote(tittel.trim(), innhold.trim());
     setLagrer(false);
     if (note) {
-      showToast("success", "Notat lagret.");
+      showToast.success("Notat lagret.");
       setTittel("");
       setInnhold("");
       setVisSkjema(false);
     } else {
-      showToast("error", "Klarte ikke lagre notatet.");
+      showToast.error("Klarte ikke lagre notatet.");
     }
   }
 
