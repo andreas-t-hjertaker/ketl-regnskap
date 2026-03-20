@@ -256,10 +256,7 @@ const handleWebhook = async ({ req, res }: RouteContext) => {
         .where("stripeCustomerId", "==", sub.customer as string)
         .limit(1).get();
       if (!customerSnap.empty) {
-        // Beregn neste faktureringsperiode fra billing_cycle_anchor
-        const periodEnd = sub.cancel_at
-          ? new Date(sub.cancel_at * 1000)
-          : new Date(sub.billing_cycle_anchor * 1000);
+        const periodEnd = new Date(sub.current_period_end * 1000);
         await customerSnap.docs[0].ref.update({
           stripeSubscriptionId: sub.id,
           stripePriceId: sub.items.data[0]?.price.id ?? null,
