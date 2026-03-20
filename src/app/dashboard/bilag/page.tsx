@@ -81,7 +81,7 @@ export default function BilagPage() {
   const { aktivKlientId } = useAktivKlient();
   const { bilag, loading, updateBilag, deleteBilag, godkjennBilag, avvisBilag, krediterBilag } = useBilag(user?.uid ?? null, aktivKlientId);
   const { motparter } = useMotparter(user?.uid ?? null);
-  const { uploadFlere, lasterOpp, fremdrift } = useBilagUpload(user?.uid ?? null);
+  const { uploadFlere, lasterOpp, fremdrift } = useBilagUpload(user?.uid ?? null, aktivKlientId);
   const [dragOver, setDragOver] = useState(false);
   const [selectedBilag, setSelectedBilag] = useState<BilagMedId | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
