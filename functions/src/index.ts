@@ -24,6 +24,33 @@ const createNoteSchema = z.object({
 
 // ─── v1: Regnskaps-API ─────────────────────────────────────────────────────
 
+const posteringSchema = z.object({
+  kontonr: z.string().min(1).max(10),
+  kontonavn: z.string().min(1).max(200),
+  debet: z.number().min(0),
+  kredit: z.number().min(0),
+  mvaKode: z.string().optional(),
+  beskrivelse: z.string().optional(),
+});
+
+const bilagSchema = z.object({
+  dato: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Dato må være YYYY-MM-DD"),
+  beskrivelse: z.string().min(1).max(500),
+  belop: z.number().min(0),
+  klientId: z.string().min(1),
+  leverandor: z.string().optional(),
+  kategori: z.string().optional(),
+  motpartId: z.string().optional(),
+  posteringer: z.array(posteringSchema).min(1),
+}).refine(
+  (data) => {
+    const debet = data.posteringer.reduce((s, p) => s + p.debet, 0);
+    const kredit = data.posteringer.reduce((s, p) => s + p.kredit, 0);
+    return Math.abs(debet - kredit) < 0.01;
+  },
+  { message: "Posteringene er ikke balansert: debet må være lik kredit" }
+);
+
 const klientSchema = z.object({
   navn: z.string().min(1).max(200),
   orgnr: z.string().regex(/^\d{9}$/, "Organisasjonsnummer må ha 9 siffer"),
@@ -658,6 +685,36 @@ const v1ListBilag = withAuth(async ({ user, req, res }) => {
   success(res, snap.docs.map((d) => ({ id: d.id, ...d.data() })));
 });
 
+const v1CreateBilag = withValidation(bilagSchema, async ({ user, data, res }) => {
+  // Hent neste bilagsnummer via transaksjon
+  const år = parseInt(data.dato.slice(0, 4), 10);
+  const tellerRef = db.doc(`users/${user.uid}/counters/bilag_${år}`);
+  const bilagsnr = await db.runTransaction(async (tx) => {
+    const teller = await tx.get(tellerRef);
+    const neste = (teller.exists ? (teller.data()!.siste as number) : 1000) + 1;
+    tx.set(tellerRef, { siste: neste, oppdatert: admin.firestore.FieldValue.serverTimestamp() });
+    return neste;
+  });
+
+  const ref = await db.collection(`users/${user.uid}/bilag`).add({
+    ...data,
+    bilagsnr,
+    status: "bokført",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  await db.collection(`users/${user.uid}/audit_log`).add({
+    handling: "bilag_opprettet",
+    entitetType: "bilag",
+    entitetId: ref.id,
+    utfortAv: user.uid,
+    uid: user.uid,
+    detaljer: { bilagsnr, beskrivelse: data.beskrivelse, belop: data.belop },
+    tidspunkt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  success(res, { id: ref.id, bilagsnr, ...data, status: "bokført" }, 201);
+});
+
 const v1GetBilag = withAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
   if (!id) return fail(res, "Mangler bilag-ID", 400);
@@ -896,8 +953,7 @@ async function leverWebhook(
 
   for (let forsøk = 1; forsøk <= 3; forsøk++) {
     try {
-      const { default: nodeFetch } = await import("node-fetch");
-      const r = await nodeFetch(url, {
+      const r = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1059,6 +1115,7 @@ const routes: Route[] = [
   { method: "GET",    path: "/v1/klienter",         handler: v1ListKlienter },
   { method: "POST",   path: "/v1/klienter",         handler: v1CreateKlient },
   { method: "GET",    path: "/v1/bilag",            handler: v1ListBilag },
+  { method: "POST",   path: "/v1/bilag",            handler: v1CreateBilag },
   { method: "GET",    path: "/v1/rapporter/resultat", handler: v1Resultat },
   { method: "GET",    path: "/v1/motparter",        handler: v1ListMotparter },
   { method: "POST",   path: "/v1/motparter",        handler: v1CreateMotpart },

@@ -316,6 +316,52 @@ export const OPENAPI_SPEC = {
           },
         },
       },
+      post: {
+        summary: "Opprett bilag",
+        operationId: "createBilag",
+        tags: ["Bilag"],
+        description: "Opprett bilag direkte med posteringer. Bilagsnummer tildeles automatisk. Debet må være lik kredit (Bokfl. § 9). Krever scope: `bilag:write`",
+        security: [{ BearerAuth: [] }, { ApiKeyAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["dato", "beskrivelse", "belop", "klientId", "posteringer"],
+                properties: {
+                  dato: { type: "string", format: "date", example: "2026-03-20" },
+                  beskrivelse: { type: "string", example: "Kjøp av kontorrekvisita" },
+                  belop: { type: "number", example: 1000 },
+                  klientId: { type: "string" },
+                  leverandor: { type: "string" },
+                  kategori: { type: "string" },
+                  motpartId: { type: "string" },
+                  posteringer: {
+                    type: "array",
+                    minItems: 1,
+                    items: {
+                      type: "object",
+                      required: ["kontonr", "kontonavn", "debet", "kredit"],
+                      properties: {
+                        kontonr: { type: "string", example: "6500" },
+                        kontonavn: { type: "string", example: "Kontorkostnader" },
+                        debet: { type: "number", example: 800 },
+                        kredit: { type: "number", example: 0 },
+                        mvaKode: { type: "string", example: "1" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Bilag opprettet" },
+          "400": { description: "Valideringsfeil — posteringer ikke balansert" },
+        },
+      },
     },
     "/v1/bilag/{id}": {
       get: {
