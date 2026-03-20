@@ -28,6 +28,7 @@ import {
   StaggerItem,
   AnimatedCounter,
 } from "@/components/motion";
+import { Varsler } from "@/components/varsler";
 
 function formatNOK(value: number) {
   return new Intl.NumberFormat("nb-NO", {
@@ -90,6 +91,9 @@ export default function DashboardPage() {
           </p>
         </div>
       </SlideIn>
+
+      {/* Varsler */}
+      {!loading && <Varsler bilag={bilag} />}
 
       {/* KPI-kort */}
       {loading ? (
