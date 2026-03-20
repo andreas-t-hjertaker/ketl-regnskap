@@ -21,6 +21,8 @@ import {
   CheckCircle2,
   Clock,
   BarChart3,
+  RotateCcw,
+  Archive,
 } from "lucide-react";
 import {
   SlideIn,
@@ -212,8 +214,17 @@ export default function DashboardPage() {
                   foreslått: "text-blue-500",
                   ubehandlet: "text-orange-500",
                   avvist: "text-destructive",
+                  kreditert: "text-muted-foreground",
+                  arkivert: "text-muted-foreground",
                 };
-                const StatusIkon = { bokført: CheckCircle2, foreslått: Bot, ubehandlet: Clock, avvist: AlertCircle }[b.status];
+                const StatusIkon = {
+                  bokført: CheckCircle2,
+                  foreslått: Bot,
+                  ubehandlet: Clock,
+                  avvist: AlertCircle,
+                  kreditert: RotateCcw,
+                  arkivert: Archive,
+                }[b.status];
                 return (
                   <StaggerItem key={b.id}>
                     <div className="flex items-start gap-3 rounded-lg border border-border/50 bg-card/50 px-4 py-3">

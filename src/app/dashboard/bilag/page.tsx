@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,8 @@ import {
   RotateCcw,
   Archive,
   Download,
+  X,
+  PenLine,
 } from "lucide-react";
 import { eksporterBilagCsv, eksporterPosteringerCsv } from "@/lib/eksport";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
@@ -164,10 +167,18 @@ export default function BilagPage() {
               Administrer kvitteringer og fakturaer. AI foreslår bokføring automatisk.
             </p>
           </div>
-          <Button onClick={() => fileInputRef.current?.click()} disabled={lasterOpp}>
-            <Upload className="mr-2 h-4 w-4" />
-            {lasterOpp ? `Laster opp… ${fremdrift}%` : "Last opp bilag"}
-          </Button>
+          <div className="flex gap-2">
+            <Link href="/dashboard/bilag/ny">
+              <Button variant="outline">
+                <PenLine className="mr-2 h-4 w-4" />
+                Nytt bilag
+              </Button>
+            </Link>
+            <Button onClick={() => fileInputRef.current?.click()} disabled={lasterOpp}>
+              <Upload className="mr-2 h-4 w-4" />
+              {lasterOpp ? `Laster opp… ${fremdrift}%` : "Last opp bilag"}
+            </Button>
+          </div>
         </div>
       </SlideIn>
 
