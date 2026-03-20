@@ -1,5 +1,6 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 import Stripe from "stripe";
@@ -1049,6 +1050,74 @@ export const analyserBilag = onDocumentCreated(
     } catch (err) {
       console.error(`[analyserBilag] Feil ved analyse av bilag ${bilagId}:`, err);
     }
+  }
+);
+
+/**
+ * Bokføringsloven § 13 — Oppbevaringspolicy
+ *
+ * Kjøres første dag i måneden (02:00 norsk tid).
+ * Markerer bokførte og krediterte bilag som "arkivert" når de er eldre enn 5 år
+ * (1 825 dager). Bilag med status "arkivert" kan deretter slettes av bruker
+ * dersom de ønsker det — plikten er oppfylt. Bilag med vedlegg i Cloud Storage
+ * slettes IKKE automatisk; sletting krever eksplisitt brukerhandling.
+ *
+ * Produserer revisjonslogg: `users/{uid}/audit_log`.
+ */
+export const arkiverGamleBilag = onSchedule(
+  {
+    schedule: "0 2 1 * *",   // Første dag i måneden, 02:00
+    timeZone: "Europe/Oslo",
+    region: "europe-west1",
+  },
+  async () => {
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - 5);
+    const cutoffIso = cutoff.toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const arkivertDato = new Date().toISOString().slice(0, 10);
+    let totalt = 0;
+
+    // Iterer over alle brukere
+    const usersSnap = await db.collection("users").listDocuments();
+    for (const userRef of usersSnap) {
+      const bilagRef = userRef.collection("bilag");
+      const snap = await bilagRef
+        .where("status", "in", ["bokført", "kreditert"])
+        .where("dato", "<=", cutoffIso)
+        .get();
+
+      if (snap.empty) continue;
+
+      const batch = db.batch();
+      const auditRef = userRef.collection("audit_log");
+
+      for (const doc of snap.docs) {
+        batch.update(doc.ref, {
+          status: "arkivert",
+          arkivertDato,
+        });
+        batch.set(auditRef.doc(), {
+          handling: "bilag_arkivert",
+          entitetType: "bilag",
+          entitetId: doc.id,
+          utfortAv: "system",
+          uid: userRef.id,
+          detaljer: {
+            bilagsnr: doc.data().bilagsnr,
+            dato: doc.data().dato,
+            cutoffDato: cutoffIso,
+          },
+          tidspunkt: now,
+        });
+        totalt++;
+      }
+
+      await batch.commit();
+    }
+
+    console.log(`[arkiverGamleBilag] Arkiverte ${totalt} bilag eldre enn ${cutoffIso}`);
   }
 );
 

@@ -101,7 +101,8 @@ export type Bilag = {
   beskrivelse: string;
   belop: number;        // beløp i NOK
   klientId: string;
-  status: "ubehandlet" | "foreslått" | "bokført" | "avvist" | "kreditert";
+  /** Bokfl. § 13: 5 år oppbevaringsplikt. "arkivert" settes av scheduled function etter utløp. */
+  status: "ubehandlet" | "foreslått" | "bokført" | "avvist" | "kreditert" | "arkivert";
   kategori?: string;
   leverandor?: string;
   vedleggUrl?: string;  // Firebase Storage URL for kvittering/faktura
@@ -111,6 +112,8 @@ export type Bilag = {
   kreditertAvId?: string;
   /** ID til originalbilag som dette bilaget reverserer */
   korrigererBilagId?: string;
+  /** ISO-dato for når bilaget ble arkivert (etter 5 år iht. Bokfl. § 13) */
+  arkivertDato?: string;
 };
 
 /** Postering (debet/kredit-linje i et bilag) */

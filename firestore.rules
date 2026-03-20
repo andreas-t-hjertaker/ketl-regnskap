@@ -61,9 +61,11 @@ service cloud.firestore {
           !request.resource.data.keys().hasAny(['klientId']) ||
           request.resource.data.klientId is string
         );
-        // Bokføringsloven § 9: bokførte og krediterte bilag kan ikke slettes
+        // Bokføringsloven § 9 + § 13: bokførte og krediterte bilag kan ikke slettes
+        // i oppbevaringsperioden (5 år). Kun "ubehandlet", "avvist" og "arkivert"
+        // (utløpt oppbevaringsplikt, merket av Cloud Function) kan slettes.
         allow delete: if erEier(uid) &&
-          resource.data.status in ["ubehandlet", "avvist"];
+          resource.data.status in ["ubehandlet", "avvist", "arkivert"];
       }
 
       // Revisjonslogg — kun lesing for bruker, Cloud Functions kan skrive

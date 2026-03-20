@@ -23,6 +23,7 @@ import {
   Eye,
   ExternalLink,
   RotateCcw,
+  Archive,
 } from "lucide-react";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
@@ -47,6 +48,7 @@ const statusBadge: Record<Bilag["status"], { label: string; variant: "default" |
   ubehandlet: { label: "Ubehandlet", variant: "outline" },
   avvist: { label: "Avvist", variant: "destructive" },
   kreditert: { label: "Kreditert", variant: "outline" },
+  arkivert: { label: "Arkivert", variant: "secondary" },
 };
 
 const statusIkon: Record<Bilag["status"], React.ElementType> = {
@@ -55,6 +57,7 @@ const statusIkon: Record<Bilag["status"], React.ElementType> = {
   ubehandlet: Clock,
   avvist: XCircle,
   kreditert: RotateCcw,
+  arkivert: Archive,
 };
 
 function formatNOK(value: number) {

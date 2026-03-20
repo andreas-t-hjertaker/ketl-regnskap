@@ -17,6 +17,7 @@ export type AuditHandling =
   | "klient_oppdatert"
   | "klient_slettet"
   | "bilag_kreditert"
+  | "bilag_arkivert"
   | "fil_lastet_opp"
   | "fil_slettet";
 
