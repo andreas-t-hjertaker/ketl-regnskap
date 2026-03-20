@@ -101,6 +101,36 @@ export type Klient = {
   opprettet: Date;
 };
 
+/** Webhook-konfigurasjon */
+export type WebhookHendelse =
+  | "bilag.opprettet"
+  | "bilag.oppdatert"
+  | "bilag.bokfort"
+  | "bilag.avvist"
+  | "bilag.kreditert"
+  | "klient.opprettet"
+  | "klient.oppdatert";
+
+export type WebhookKonfig = {
+  url: string;
+  hendelser: WebhookHendelse[];
+  aktiv: boolean;
+  opprettet: Date;
+  userId: string;
+  /** SHA-256 HMAC-signeringsnøkkel (lagres hashet i Firestore) */
+  hashetSecret: string;
+};
+
+export type WebhookLogg = {
+  webhookId: string;
+  hendelse: WebhookHendelse;
+  statusKode: number;
+  forsøk: number;
+  url: string;
+  tidspunkt: Date;
+  ok: boolean;
+};
+
 /** Motpart — kunde eller leverandør (Bokfl. + SAF-T krav) */
 export type Motpart = {
   /** "kunde" (debitorer) eller "leverandor" (kreditorer) */

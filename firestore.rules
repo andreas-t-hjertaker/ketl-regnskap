@@ -16,6 +16,20 @@ service cloud.firestore {
       return erAutentisert() && request.auth.token.admin == true;
     }
 
+    // ─── Webhooks ────────────────────────────────────────────────────────────────
+    match /webhooks/{webhookId} {
+      allow read: if erAutentisert() && resource.data.userId == request.auth.uid;
+      allow create: if erAutentisert() && request.resource.data.userId == request.auth.uid
+        && request.resource.data.url is string
+        && request.resource.data.hendelser is list;
+      allow update, delete: if erAutentisert() && resource.data.userId == request.auth.uid;
+    }
+
+    match /webhook_logg/{loggId} {
+      allow read: if erAutentisert() && resource.data.userId == request.auth.uid;
+      allow write: if erAdmin(); // Kun Cloud Functions skriver
+    }
+
     // ─── Abonnementer ────────────────────────────────────────────────────────────
     match /subscriptions/{uid} {
       allow read: if erEier(uid);
