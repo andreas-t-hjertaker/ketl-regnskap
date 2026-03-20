@@ -398,6 +398,76 @@ export const OPENAPI_SPEC = {
         },
       },
     },
+    "/v1/motparter": {
+      get: {
+        summary: "List motparter",
+        operationId: "listMotparter",
+        tags: ["Motparter"],
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { name: "klientId", in: "query", schema: { type: "string" }, description: "Filtrer etter klient-ID" },
+          { name: "type", in: "query", schema: { type: "string", enum: ["kunde", "leverandor"] }, description: "Filtrer etter type" },
+        ],
+        responses: { "200": { description: "Liste med motparter (kunder og leverandører)" } },
+      },
+      post: {
+        summary: "Opprett motpart",
+        operationId: "createMotpart",
+        tags: ["Motparter"],
+        security: [{ BearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["type", "navn", "klientId"],
+                properties: {
+                  type: { type: "string", enum: ["kunde", "leverandor"] },
+                  navn: { type: "string", example: "Acme AS" },
+                  orgnr: { type: "string", example: "123456789" },
+                  klientId: { type: "string" },
+                  epost: { type: "string" },
+                  telefon: { type: "string" },
+                  adresse: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: { "201": { description: "Motpart opprettet" } },
+      },
+    },
+    "/v1/motparter/{id}": {
+      get: {
+        summary: "Hent motpart",
+        operationId: "getMotpart",
+        tags: ["Motparter"],
+        security: [{ BearerAuth: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: { "200": { description: "Motpart-detaljer" } },
+      },
+      put: {
+        summary: "Oppdater motpart",
+        operationId: "updateMotpart",
+        tags: ["Motparter"],
+        security: [{ BearerAuth: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { type: "object" } } },
+        },
+        responses: { "200": { description: "Motpart oppdatert" } },
+      },
+      delete: {
+        summary: "Slett motpart",
+        operationId: "deleteMotpart",
+        tags: ["Motparter"],
+        security: [{ BearerAuth: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: { "200": { description: "Motpart slettet" } },
+      },
+    },
     "/api-keys": {
       get: {
         summary: "List API-nøkler",
@@ -455,6 +525,7 @@ export const OPENAPI_SPEC = {
     { name: "Klienter", description: "Regnskapsklienter (bedrifter)" },
     { name: "Bilag", description: "Bilag, kvitteringer og posteringer" },
     { name: "Rapporter", description: "Resultatregnskap, balanse og MVA" },
+    { name: "Motparter", description: "Kunder og leverandører (SAF-T debitor/kreditor)" },
     { name: "API-nøkler", description: "Administrasjon av API-nøkler" },
   ],
 };

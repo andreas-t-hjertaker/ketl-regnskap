@@ -806,6 +806,67 @@ const v1Resultat = withAuth(async ({ user, req, res }) => {
 // ============================================================
 // Webhooks — registrering og levering
 // ============================================================
+// v1 — Motparter (kunder og leverandører)
+// ============================================================
+
+const motpartSchema = z.object({
+  type: z.enum(["kunde", "leverandor"]),
+  navn: z.string().min(1).max(200),
+  orgnr: z.string().regex(/^\d{9}$/).optional(),
+  kontaktperson: z.string().max(200).optional(),
+  epost: z.string().email().optional(),
+  telefon: z.string().max(30).optional(),
+  adresse: z.string().max(500).optional(),
+  klientId: z.string().min(1),
+});
+
+const v1ListMotparter = withAuth(async ({ user, req, res }) => {
+  const { klientId, type } = req.query as Record<string, string>;
+  let q: FirebaseFirestore.Query = db.collection(`users/${user.uid}/motparter`);
+  if (klientId) q = q.where("klientId", "==", klientId);
+  if (type && (type === "kunde" || type === "leverandor")) q = q.where("type", "==", type);
+  q = q.orderBy("navn", "asc").limit(200);
+  const snap = await q.get();
+  success(res, snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+});
+
+const v1CreateMotpart = withValidation(motpartSchema, async ({ user, data, res }) => {
+  const ref = await db.collection(`users/${user.uid}/motparter`).add({
+    ...data,
+    opprettet: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  success(res, { id: ref.id, ...data }, 201);
+});
+
+const v1GetMotpart = withAuth(async ({ user, req, res }) => {
+  const id = pathSegment(req.path, 2);
+  if (!id) return fail(res, "Mangler motpart-ID", 400);
+  const snap = await db.doc(`users/${user.uid}/motparter/${id}`).get();
+  if (!snap.exists) return fail(res, "Motpart ikke funnet", 404);
+  success(res, { id: snap.id, ...snap.data() });
+});
+
+const v1UpdateMotpart = withValidation(motpartSchema.partial(), async ({ user, req, data, res }) => {
+  const id = pathSegment(req.path, 2);
+  if (!id) return fail(res, "Mangler motpart-ID", 400);
+  const ref = db.doc(`users/${user.uid}/motparter/${id}`);
+  const snap = await ref.get();
+  if (!snap.exists) return fail(res, "Motpart ikke funnet", 404);
+  await ref.update({ ...data, oppdatert: admin.firestore.FieldValue.serverTimestamp() });
+  success(res, { id, ...data });
+});
+
+const v1DeleteMotpart = withAuth(async ({ user, req, res }) => {
+  const id = pathSegment(req.path, 2);
+  if (!id) return fail(res, "Mangler motpart-ID", 400);
+  const ref = db.doc(`users/${user.uid}/motparter/${id}`);
+  const snap = await ref.get();
+  if (!snap.exists) return fail(res, "Motpart ikke funnet", 404);
+  await ref.delete();
+  success(res, { deleted: true });
+});
+
+// ============================================================
 
 type WebhookHendelse =
   | "bilag.opprettet" | "bilag.oppdatert" | "bilag.bokfort"
@@ -999,6 +1060,8 @@ const routes: Route[] = [
   { method: "POST",   path: "/v1/klienter",         handler: v1CreateKlient },
   { method: "GET",    path: "/v1/bilag",            handler: v1ListBilag },
   { method: "GET",    path: "/v1/rapporter/resultat", handler: v1Resultat },
+  { method: "GET",    path: "/v1/motparter",        handler: v1ListMotparter },
+  { method: "POST",   path: "/v1/motparter",        handler: v1CreateMotpart },
   // Parametriserte v1-ruter håndteres med startsWith-matching i api-funksjonen
   // ─── OpenAPI-dokumentasjon ─────────────────────────────────────────────────
   {
@@ -1443,6 +1506,15 @@ export const api = onRequest(
       if (req.method === "GET") { await v1GetKlient({ req, res }); return; }
       if (req.method === "PUT") { await v1UpdateKlient({ req, res }); return; }
       if (req.method === "DELETE") { await v1DeleteKlient({ req, res }); return; }
+    }
+
+    // ─── v1 Motparter: GET/PUT/DELETE /v1/motparter/:id ─────────────────────
+    if (req.path.startsWith("/v1/motparter/")) {
+      const tail = req.path.slice("/v1/motparter/".length);
+      if (!tail) { fail(res, "Mangler motpart-ID", 400); return; }
+      if (req.method === "GET") { await v1GetMotpart({ req, res }); return; }
+      if (req.method === "PUT") { await v1UpdateMotpart({ req, res }); return; }
+      if (req.method === "DELETE") { await v1DeleteMotpart({ req, res }); return; }
     }
 
     // ─── Webhooks: DELETE /webhooks/:id, GET /webhooks/:id/logg ─────────────
