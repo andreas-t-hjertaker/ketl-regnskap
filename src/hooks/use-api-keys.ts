@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "./use-auth";
 import { fetchApi } from "@/lib/api-client";
-import type { ApiKey } from "@/types";
+import type { ApiKey, ApiScope } from "@/types";
 
 type ApiKeyListItem = Omit<ApiKey, "hashedKey">;
 
@@ -27,11 +27,11 @@ export function useApiKeys() {
     fetchKeys();
   }, [fetchKeys]);
 
-  /** Opprett ny API-nøkkel */
-  async function createKey(name: string): Promise<string | null> {
+  /** Opprett ny API-nøkkel med spesifiserte scopes */
+  async function createKey(name: string, scopes: ApiScope[]): Promise<string | null> {
     const res = await fetchApi<{ key: string; apiKey: ApiKeyListItem }>("/api-keys", {
       method: "POST",
-      body: { name },
+      body: { name, scopes },
     });
 
     if (res.success) {

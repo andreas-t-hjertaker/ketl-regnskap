@@ -60,6 +60,20 @@ export type UserSubscription = {
   cancelAtPeriodEnd: boolean;
 };
 
+/** Tilgjengelige API-scopes */
+export const API_SCOPES = [
+  "bilag:read",
+  "bilag:write",
+  "klienter:read",
+  "klienter:write",
+  "rapporter:read",
+  "saft:export",
+  "ai:chat",
+  "admin",
+] as const;
+
+export type ApiScope = typeof API_SCOPES[number];
+
 /** API-nøkkel lagret i Firestore */
 export type ApiKey = {
   id: string;
@@ -70,6 +84,7 @@ export type ApiKey = {
   lastUsedAt: Date | null;
   expiresAt: Date | null;
   revoked: boolean;
+  scopes: ApiScope[];     // Tilgangsnivåer for denne nøkkelen
 };
 
 // ─── Regnskapsdomene ────────────────────────────────────────────────────────

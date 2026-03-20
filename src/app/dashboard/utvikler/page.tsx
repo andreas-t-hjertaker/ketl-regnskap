@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Code, Plus, Copy, Eye, EyeOff, AlertTriangle } from "lucide-react";
+import { Code, Plus, Copy, Eye, EyeOff, AlertTriangle, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -26,6 +26,25 @@ import {
 import { useApiKeys } from "@/hooks/use-api-keys";
 import { showToast } from "@/lib/toast";
 import { formatDate } from "@/lib/utils";
+import { API_SCOPES, type ApiScope } from "@/types";
+
+const SCOPE_BESKRIVELSE: Record<ApiScope, string> = {
+  "bilag:read": "Les bilag og posteringer",
+  "bilag:write": "Opprett og oppdater bilag",
+  "klienter:read": "Les klientdata",
+  "klienter:write": "Opprett og oppdater klienter",
+  "rapporter:read": "Les rapporter og statistikk",
+  "saft:export": "Eksporter SAF-T XML",
+  "ai:chat": "Bruk AI-funksjoner",
+  "admin": "Full administratortilgang",
+};
+
+const SCOPE_GRUPPER: { label: string; scopes: ApiScope[] }[] = [
+  { label: "Bilag", scopes: ["bilag:read", "bilag:write"] },
+  { label: "Klienter", scopes: ["klienter:read", "klienter:write"] },
+  { label: "Rapporter og eksport", scopes: ["rapporter:read", "saft:export"] },
+  { label: "Andre", scopes: ["ai:chat", "admin"] },
+];
 
 export default function UtviklerPage() {
   const { keys, loading, createKey, revokeKey } = useApiKeys();
@@ -33,22 +52,30 @@ export default function UtviklerPage() {
   // Skjema-tilstand
   const [showForm, setShowForm] = useState(false);
   const [keyName, setKeyName] = useState("");
+  const [valgtScopes, setValgtScopes] = useState<ApiScope[]>(["bilag:read", "klienter:read", "rapporter:read"]);
   const [creating, setCreating] = useState(false);
 
   // Vis nyopprettet nøkkel
   const [newKey, setNewKey] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(true);
 
+  function toggleScope(scope: ApiScope) {
+    setValgtScopes((prev) =>
+      prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope]
+    );
+  }
+
   /** Opprett ny nøkkel */
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!keyName.trim()) return;
+    if (!keyName.trim() || valgtScopes.length === 0) return;
 
     setCreating(true);
-    const key = await createKey(keyName.trim());
+    const key = await createKey(keyName.trim(), valgtScopes);
     if (key) {
       setNewKey(key);
       setKeyName("");
+      setValgtScopes(["bilag:read", "klienter:read", "rapporter:read"]);
       setShowForm(false);
       showToast.success("API-nøkkel opprettet!");
     } else {
@@ -79,7 +106,7 @@ export default function UtviklerPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Utvikler</h1>
           <p className="text-muted-foreground">
-            Administrer API-nøkler for programmatisk tilgang.
+            Administrer API-nøkler med scope-basert tilgangskontroll.
           </p>
         </div>
         <Button onClick={() => setShowForm(true)} disabled={showForm}>
@@ -95,11 +122,10 @@ export default function UtviklerPage() {
             <CardHeader>
               <CardTitle>Ny API-nøkkel</CardTitle>
               <CardDescription>
-                Gi nøkkelen et beskrivende navn slik at du kan identifisere den
-                senere.
+                Gi nøkkelen et beskrivende navn og velg hvilke tilganger den skal ha.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="key-name">Navn</Label>
                 <Input
@@ -110,9 +136,47 @@ export default function UtviklerPage() {
                   autoFocus
                 />
               </div>
+
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4" />
+                  Tilganger (scopes)
+                </Label>
+                {SCOPE_GRUPPER.map((gruppe) => (
+                  <div key={gruppe.label}>
+                    <p className="text-xs font-medium text-muted-foreground mb-1.5">{gruppe.label}</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {gruppe.scopes.map((scope) => (
+                        <label
+                          key={scope}
+                          className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                            valgtScopes.includes(scope)
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:bg-accent/30"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={valgtScopes.includes(scope)}
+                            onChange={() => toggleScope(scope)}
+                            className="mt-0.5"
+                          />
+                          <div>
+                            <p className="text-sm font-mono font-medium">{scope}</p>
+                            <p className="text-xs text-muted-foreground">{SCOPE_BESKRIVELSE[scope]}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {valgtScopes.length === 0 && (
+                  <p className="text-xs text-destructive">Minst ett scope er påkrevd.</p>
+                )}
+              </div>
             </CardContent>
             <CardFooter className="flex gap-2">
-              <Button type="submit" disabled={creating || !keyName.trim()}>
+              <Button type="submit" disabled={creating || !keyName.trim() || valgtScopes.length === 0}>
                 {creating ? <Spinner className="mr-2 h-4 w-4" /> : null}
                 Opprett
               </Button>
@@ -193,6 +257,7 @@ export default function UtviklerPage() {
                 <TableRow>
                   <TableHead>Navn</TableHead>
                   <TableHead>Nøkkel</TableHead>
+                  <TableHead>Tilganger</TableHead>
                   <TableHead>Opprettet</TableHead>
                   <TableHead>Sist brukt</TableHead>
                   <TableHead>Status</TableHead>
@@ -205,6 +270,15 @@ export default function UtviklerPage() {
                     <TableCell className="font-medium">{key.name}</TableCell>
                     <TableCell className="font-mono text-sm text-muted-foreground">
                       {key.prefix}...
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {(key.scopes ?? []).map((scope) => (
+                          <Badge key={scope} variant="secondary" className="text-xs font-mono">
+                            {scope}
+                          </Badge>
+                        ))}
+                      </div>
                     </TableCell>
                     <TableCell>{formatDate(key.createdAt)}</TableCell>
                     <TableCell>
@@ -237,6 +311,31 @@ export default function UtviklerPage() {
         </CardContent>
       </Card>
 
+      {/* Scope-referanse */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5" />
+            Scope-referanse
+          </CardTitle>
+          <CardDescription>
+            Oversikt over tilgjengelige scopes og hva de gir tilgang til.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {API_SCOPES.map((scope) => (
+              <div key={scope} className="flex items-start gap-3 rounded-lg border border-border/50 p-3">
+                <Badge variant="outline" className="font-mono text-xs shrink-0">
+                  {scope}
+                </Badge>
+                <p className="text-xs text-muted-foreground">{SCOPE_BESKRIVELSE[scope]}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Brukseksempel */}
       <Card>
         <CardHeader>
@@ -247,8 +346,14 @@ export default function UtviklerPage() {
         </CardHeader>
         <CardContent>
           <pre className="overflow-x-auto rounded-md bg-muted p-4 text-sm">
-            <code>{`curl -X GET \\
-  https://ketlcloud.web.app/api/me \\
+            <code>{`# Les bilag (krever scope: bilag:read)
+curl -X GET \\
+  https://ketlcloud.web.app/api/v1/bilag \\
+  -H "x-api-key: sk_live_din_nøkkel_her"
+
+# Eksporter SAF-T (krever scope: saft:export)
+curl -X GET \\
+  https://ketlcloud.web.app/api/v1/klienter \\
   -H "x-api-key: sk_live_din_nøkkel_her"`}</code>
           </pre>
         </CardContent>

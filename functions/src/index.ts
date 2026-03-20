@@ -259,6 +259,14 @@ const handleWebhook = async ({ req, res }: RouteContext) => {
 // API-nøkkel-handlers
 // ============================================================
 
+const GYLDIGE_SCOPES = [
+  "bilag:read", "bilag:write",
+  "klienter:read", "klienter:write",
+  "rapporter:read", "saft:export",
+  "ai:chat", "admin",
+] as const;
+type ApiScope = typeof GYLDIGE_SCOPES[number];
+
 /** GET /api-keys — List brukerens API-nøkler */
 const listApiKeys = withAuth(async ({ user, res }) => {
   const snapshot = await db.collection("apiKeys")
@@ -276,6 +284,7 @@ const listApiKeys = withAuth(async ({ user, res }) => {
       lastUsedAt: data.lastUsedAt?.toDate() ?? null,
       expiresAt: data.expiresAt?.toDate() ?? null,
       revoked: data.revoked,
+      scopes: (data.scopes ?? []) as ApiScope[],
     };
   });
 
@@ -284,11 +293,25 @@ const listApiKeys = withAuth(async ({ user, res }) => {
 
 /** POST /api-keys — Opprett ny API-nøkkel */
 const createApiKey = withAuth(async ({ user, req, res }) => {
-  const { name } = req.body as { name?: string };
+  const { name, scopes } = req.body as { name?: string; scopes?: string[] };
   if (!name || typeof name !== "string" || name.trim().length === 0) {
     fail(res, "Navn er påkrevd");
     return;
   }
+
+  // Valider scopes
+  const gyldige: ApiScope[] = [];
+  if (Array.isArray(scopes)) {
+    for (const s of scopes) {
+      if (GYLDIGE_SCOPES.includes(s as ApiScope)) {
+        gyldige.push(s as ApiScope);
+      }
+    }
+  }
+  // Standard: kun lesing om ingen scopes er oppgitt
+  const ferdigeScopes: ApiScope[] = gyldige.length > 0
+    ? gyldige
+    : ["bilag:read", "klienter:read", "rapporter:read"];
 
   // Generer nøkkel
   const rawKey = crypto.randomBytes(32).toString("hex");
@@ -301,6 +324,7 @@ const createApiKey = withAuth(async ({ user, req, res }) => {
     prefix,
     hashedKey,
     userId: user.uid,
+    scopes: ferdigeScopes,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     lastUsedAt: null,
     expiresAt: null,
@@ -313,6 +337,7 @@ const createApiKey = withAuth(async ({ user, req, res }) => {
       id: docRef.id,
       name: name.trim(),
       prefix,
+      scopes: ferdigeScopes,
       createdAt: new Date(),
       lastUsedAt: null,
       expiresAt: null,
