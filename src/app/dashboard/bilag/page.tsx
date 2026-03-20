@@ -554,7 +554,8 @@ export default function BilagPage() {
               },
             ]}
             searchable
-            searchKey="beskrivelse"
+            searchKeys={["beskrivelse", "leverandor", "bilagsnr", "kategori"]}
+            searchPlaceholder="Søk på beskrivelse, leverandør, bilagsnr…"
             pageSize={8}
           />
         )}
