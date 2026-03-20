@@ -59,9 +59,10 @@ function genererPerioder(bilagDatoer: string[]) {
 
 export default function RapporterPage() {
   const { user } = useAuth();
-  const { aktivKlient } = useAktivKlient();
+  const { aktivKlient, aktivKlientId } = useAktivKlient();
   const { loading, bilag, resultatForPeriode, balanse, mvaTerminer } = useRapporter(
-    user?.uid ?? null
+    user?.uid ?? null,
+    aktivKlientId
   );
   const [genererSaft, setGenererSaft] = useState(false);
   const periodeAlternativer = useMemo(
