@@ -967,8 +967,10 @@ async function leverWebhook(
 
   let statusKode = 0;
   let ok = false;
+  let antallForsøk = 0;
 
   for (let forsøk = 1; forsøk <= 3; forsøk++) {
+    antallForsøk = forsøk;
     try {
       const r = await fetch(url, {
         method: "POST",
@@ -996,6 +998,7 @@ async function leverWebhook(
     webhookId,
     hendelse,
     statusKode,
+    forsøk: antallForsøk,
     ok,
     url,
     userId,
@@ -1060,7 +1063,8 @@ const createWebhook = withAuth(async ({ user, req, res }) => {
     userId: user.uid,
     opprettet: admin.firestore.FieldValue.serverTimestamp(),
   });
-  success(res, { id: ref.id, url, hendelser: gyldige, aktiv: true, secret }, 201);
+  const webhook = { id: ref.id, url, hendelser: gyldige, aktiv: true, opprettet: new Date().toISOString() };
+  success(res, { id: ref.id, secret, webhook }, 201);
 });
 
 /** DELETE /webhooks/:id — Slett webhook */
