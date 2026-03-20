@@ -536,7 +536,7 @@ export default function BilagPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => eksporterBilagCsv(filtrerteBilag)}
+              onClick={() => eksporterBilagCsv(filtrerteBilag, motparter)}
             >
               <Download className="mr-2 h-4 w-4" />
               Eksporter bilagliste (CSV)
@@ -544,7 +544,7 @@ export default function BilagPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => eksporterPosteringerCsv(filtrerteBilag)}
+              onClick={() => eksporterPosteringerCsv(filtrerteBilag, motparter)}
             >
               <Download className="mr-2 h-4 w-4" />
               Posteringsliste (CSV)

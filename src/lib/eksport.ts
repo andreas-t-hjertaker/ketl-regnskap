@@ -7,8 +7,10 @@
  */
 
 import type { BilagMedId } from "@/hooks/use-bilag";
-import type { Klient } from "@/types";
+import type { Klient, Motpart } from "@/types";
 import type { Resultatregnskap } from "@/hooks/use-rapporter";
+
+type MotpartMedId = Motpart & { id: string };
 
 // ─── CSV-hjelper ─────────────────────────────────────────────────────────────
 
@@ -55,28 +57,49 @@ function nokStr(n: number): string {
 /**
  * Eksporter bilagliste som CSV.
  * Én rad per bilag med alle kolonner; posteringer ikke inkludert.
+ * Sender med motparter for oppslag av navn via motpartId.
  */
-export function eksporterBilagCsv(bilag: BilagMedId[], filnavn?: string): void {
+export function eksporterBilagCsv(
+  bilag: BilagMedId[],
+  motparter?: MotpartMedId[],
+  filnavn?: string
+): void {
+  const motpartNavn = (id?: string) =>
+    id ? (motparter?.find((m) => m.id === id)?.navn ?? id) : "";
+
   const headers = [
     "Bilagsnr",
     "Dato",
     "Beskrivelse",
+    "KlientId",
     "Leverandør",
+    "Motpart",
     "Beløp (NOK)",
     "Status",
     "Kategori",
     "Antall posteringer",
+    "Vedlegg",
+    "Kreditert av (bilagsnr)",
+    "Korrigerer bilag (bilagsnr)",
   ];
+
+  // Build a bilagsnr lookup for credit/correction cross-references
+  const bilagsnrById = new Map(bilag.map((b) => [b.id, b.bilagsnr]));
 
   const rader = bilag.map((b) => [
     b.bilagsnr,
     b.dato,
     b.beskrivelse,
+    b.klientId,
     b.leverandor ?? "",
+    motpartNavn(b.motpartId),
     nokStr(b.belop),
     b.status,
     b.kategori ?? "",
     b.posteringer.length,
+    b.vedleggUrl ? "Ja" : "Nei",
+    b.kreditertAvId ? (bilagsnrById.get(b.kreditertAvId) ?? b.kreditertAvId) : "",
+    b.korrigererBilagId ? (bilagsnrById.get(b.korrigererBilagId) ?? b.korrigererBilagId) : "",
   ]);
 
   const dato = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -86,12 +109,23 @@ export function eksporterBilagCsv(bilag: BilagMedId[], filnavn?: string): void {
 /**
  * Eksporter detaljert posteringsliste som CSV.
  * Én rad per postering; nyttig for revisorer.
+ * Sender med motparter for oppslag av navn via motpartId.
  */
-export function eksporterPosteringerCsv(bilag: BilagMedId[], filnavn?: string): void {
+export function eksporterPosteringerCsv(
+  bilag: BilagMedId[],
+  motparter?: MotpartMedId[],
+  filnavn?: string
+): void {
+  const motpartNavn = (id?: string) =>
+    id ? (motparter?.find((m) => m.id === id)?.navn ?? id) : "";
+
   const headers = [
     "Bilagsnr",
     "Dato",
     "Beskrivelse bilag",
+    "KlientId",
+    "Motpart",
+    "Status",
     "Kontonr",
     "Kontonavn",
     "Debet (NOK)",
@@ -107,6 +141,9 @@ export function eksporterPosteringerCsv(bilag: BilagMedId[], filnavn?: string): 
         b.bilagsnr,
         b.dato,
         b.beskrivelse,
+        b.klientId,
+        motpartNavn(b.motpartId),
+        b.status,
         p.kontonr,
         p.kontonavn,
         nokStr(p.debet ?? 0),
