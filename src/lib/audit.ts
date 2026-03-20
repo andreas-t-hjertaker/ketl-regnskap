@@ -25,7 +25,7 @@ export type AuditEntry = {
   handling: AuditHandling;
   entitetType: "bilag" | "klient" | "fil";
   entitetId: string;
-  utfortAv: "bruker" | "ai";
+  utfortAv: "bruker" | "ai" | "system";
   uid: string;
   detaljer?: Record<string, unknown>;
   tidspunkt: Date;
@@ -41,7 +41,7 @@ export async function loggHandling(
   entitetType: AuditEntry["entitetType"],
   entitetId: string,
   detaljer?: Record<string, unknown>,
-  utfortAv: AuditEntry["utfortAv"] = "bruker"
+  utfortAv: "bruker" | "ai" | "system" = "bruker"
 ): Promise<void> {
   try {
     await addDoc(collection(db, `users/${uid}/audit_log`), {
