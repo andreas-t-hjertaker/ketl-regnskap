@@ -7,6 +7,7 @@ import Stripe from "stripe";
 import { z } from "zod";
 import { VertexAI, HarmCategory, HarmBlockThreshold } from "@google-cloud/vertexai";
 import { success, fail, withAuth, withAdmin, withValidation, rateLimit, type RouteContext } from "./middleware";
+import { OPENAPI_SPEC, genererDocsHtml } from "./openapi";
 
 admin.initializeApp();
 
@@ -842,6 +843,26 @@ const routes: Route[] = [
   { method: "GET",    path: "/v1/bilag",            handler: v1ListBilag },
   { method: "GET",    path: "/v1/rapporter/resultat", handler: v1Resultat },
   // Parametriserte v1-ruter håndteres med startsWith-matching i api-funksjonen
+  // ─── OpenAPI-dokumentasjon ─────────────────────────────────────────────────
+  {
+    method: "GET",
+    path: "/openapi.json",
+    handler: ({ res }: RouteContext) => {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.json(OPENAPI_SPEC);
+    },
+  },
+  {
+    method: "GET",
+    path: "/docs",
+    handler: ({ req, res }: RouteContext) => {
+      const host = req.headers["x-forwarded-host"] ?? req.headers.host ?? "localhost";
+      const proto = req.headers["x-forwarded-proto"] ?? "https";
+      const specUrl = `${proto}://${host}/api/openapi.json`;
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(genererDocsHtml(specUrl));
+    },
+  },
 ];
 
 // ============================================================

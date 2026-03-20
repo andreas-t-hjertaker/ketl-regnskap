@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Code, Plus, Copy, Eye, EyeOff, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Code, Plus, Copy, Eye, EyeOff, AlertTriangle, ShieldCheck, BookOpen, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -332,6 +332,43 @@ export default function UtviklerPage() {
                 <p className="text-xs text-muted-foreground">{SCOPE_BESKRIVELSE[scope]}</p>
               </div>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* API-dokumentasjon */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5" />
+            Interaktiv API-dokumentasjon
+          </CardTitle>
+          <CardDescription>
+            OpenAPI 3.1-spesifikasjon med Scalar UI — utforsk og test alle endepunkter direkte.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            <a
+              href="https://api-api-endpoint.run.app/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-md border border-border/50 px-4 py-2 text-sm font-medium hover:bg-accent/50 transition-colors"
+            >
+              <BookOpen className="h-4 w-4" />
+              Åpne API-docs
+              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+            </a>
+            <a
+              href="https://api-api-endpoint.run.app/openapi.json"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-md border border-border/50 px-4 py-2 text-sm font-medium hover:bg-accent/50 transition-colors"
+            >
+              <Code className="h-4 w-4" />
+              openapi.json
+              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+            </a>
           </div>
         </CardContent>
       </Card>
