@@ -28,10 +28,12 @@ import {
   AlertCircle,
   Download,
 } from "lucide-react";
+import Link from "next/link";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
 import { useKlienter } from "@/hooks/use-klienter";
 import { useBrreg } from "@/hooks/use-brreg";
+import { useAktivKlient } from "@/hooks/use-aktiv-klient";
 import { eksporterKlienterCsv } from "@/lib/eksport";
 import type { Klient } from "@/types";
 
@@ -221,6 +223,7 @@ function OpprettKlientSkjema({ onLagret, onAvbryt }: { onLagret: () => void; onA
 export default function KlienterPage() {
   const { user } = useAuth();
   const { klienter, loading, deleteKlient } = useKlienter(user?.uid ?? null);
+  const { setAktivKlient } = useAktivKlient();
   const [visOpprettSkjema, setVisOpprettSkjema] = useState(false);
   const [søk, setSøk] = useState("");
 
@@ -384,10 +387,14 @@ export default function KlienterPage() {
                     </div>
                   )}
                   <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Link
+                      href="/dashboard/bilag"
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                      onClick={() => setAktivKlient(klient)}
+                    >
                       <Receipt className="h-3.5 w-3.5" />
-                      <span>Klient</span>
-                    </div>
+                      <span>Vis bilag →</span>
+                    </Link>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" />
                       <span>Opprettet {formatDato(klient.opprettet)}</span>
