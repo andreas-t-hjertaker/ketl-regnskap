@@ -1,5 +1,5 @@
 import { onRequest } from "firebase-functions/v2/https";
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
@@ -804,6 +804,160 @@ const v1Resultat = withAuth(async ({ user, req, res }) => {
 });
 
 // ============================================================
+// Webhooks — registrering og levering
+// ============================================================
+
+type WebhookHendelse =
+  | "bilag.opprettet" | "bilag.oppdatert" | "bilag.bokfort"
+  | "bilag.avvist" | "bilag.kreditert"
+  | "klient.opprettet" | "klient.oppdatert";
+
+const GYLDIGE_HENDELSER: WebhookHendelse[] = [
+  "bilag.opprettet", "bilag.oppdatert", "bilag.bokfort",
+  "bilag.avvist", "bilag.kreditert",
+  "klient.opprettet", "klient.oppdatert",
+];
+
+/** Lever payload til én webhook med HMAC-SHA256-signering og retry (maks 3) */
+async function leverWebhook(
+  webhookId: string,
+  url: string,
+  secret: string,
+  hendelse: WebhookHendelse,
+  userId: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const body = JSON.stringify({ hendelse, payload, tidspunkt: new Date().toISOString() });
+  const hmac = crypto.createHmac("sha256", secret).update(body).digest("hex");
+
+  let statusKode = 0;
+  let ok = false;
+
+  for (let forsøk = 1; forsøk <= 3; forsøk++) {
+    try {
+      const { default: nodeFetch } = await import("node-fetch");
+      const r = await nodeFetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Ketl-Signature": `sha256=${hmac}`,
+          "X-Ketl-Hendelse": hendelse,
+        },
+        body,
+        signal: AbortSignal.timeout(10_000),
+      });
+      statusKode = r.status;
+      ok = r.ok;
+      if (ok) break;
+      // Eksponentiell backoff
+      if (forsøk < 3) await new Promise((res) => setTimeout(res, forsøk * 2000));
+    } catch {
+      statusKode = 0;
+      if (forsøk < 3) await new Promise((res) => setTimeout(res, forsøk * 2000));
+    }
+  }
+
+  // Logg leveringen
+  await db.collection("webhook_logg").add({
+    webhookId,
+    hendelse,
+    statusKode,
+    ok,
+    url,
+    userId,
+    tidspunkt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+}
+
+/** Finn og lever aktive webhooks for en hendelse og bruker */
+async function fireWebhooks(
+  userId: string,
+  hendelse: WebhookHendelse,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const snap = await db.collection("webhooks")
+    .where("userId", "==", userId)
+    .where("aktiv", "==", true)
+    .get();
+
+  for (const doc of snap.docs) {
+    const data = doc.data();
+    const hendelser = (data.hendelser ?? []) as WebhookHendelse[];
+    if (!hendelser.includes(hendelse)) continue;
+    leverWebhook(doc.id, data.url, data.secret ?? "", hendelse, userId, payload).catch(() => {
+      // Feiler lydløst — leveringen er allerede logget
+    });
+  }
+}
+
+/** GET /webhooks — List brukerens webhooks */
+const listWebhooks = withAuth(async ({ user, res }) => {
+  const snap = await db.collection("webhooks")
+    .where("userId", "==", user.uid)
+    .orderBy("opprettet", "desc")
+    .get();
+  success(res, snap.docs.map((d) => ({
+    id: d.id,
+    url: d.data().url,
+    hendelser: d.data().hendelser,
+    aktiv: d.data().aktiv,
+    opprettet: d.data().opprettet?.toDate() ?? null,
+  })));
+});
+
+/** POST /webhooks — Registrer ny webhook */
+const createWebhook = withAuth(async ({ user, req, res }) => {
+  const { url, hendelser } = req.body as { url?: string; hendelser?: string[] };
+  if (!url || typeof url !== "string") {
+    fail(res, "URL er påkrevd"); return;
+  }
+  try { new URL(url); } catch { fail(res, "Ugyldig URL"); return; }
+  const gyldige = (Array.isArray(hendelser) ? hendelser : [])
+    .filter((h) => GYLDIGE_HENDELSER.includes(h as WebhookHendelse)) as WebhookHendelse[];
+  if (gyldige.length === 0) {
+    fail(res, `Minst én gyldig hendelse påkrevd: ${GYLDIGE_HENDELSER.join(", ")}`); return;
+  }
+  const secret = crypto.randomBytes(32).toString("hex");
+  const ref = await db.collection("webhooks").add({
+    url,
+    hendelser: gyldige,
+    aktiv: true,
+    secret,
+    userId: user.uid,
+    opprettet: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  success(res, { id: ref.id, url, hendelser: gyldige, aktiv: true, secret }, 201);
+});
+
+/** DELETE /webhooks/:id — Slett webhook */
+const deleteWebhook = withAuth(async ({ user, req, res }) => {
+  const id = req.path.split("/").filter(Boolean).pop();
+  if (!id) { fail(res, "Mangler webhook-ID", 400); return; }
+  const doc = await db.collection("webhooks").doc(id).get();
+  if (!doc.exists || doc.data()?.userId !== user.uid) {
+    fail(res, "Ikke funnet", 404); return;
+  }
+  await doc.ref.delete();
+  success(res, { deleted: true });
+});
+
+/** GET /webhooks/:id/logg — Hent leveringslogg */
+const getWebhookLogg = withAuth(async ({ user, req, res }) => {
+  const id = pathSegment(req.path, 1);
+  if (!id) { fail(res, "Mangler ID", 400); return; }
+  const doc = await db.collection("webhooks").doc(id).get();
+  if (!doc.exists || doc.data()?.userId !== user.uid) {
+    fail(res, "Ikke funnet", 404); return;
+  }
+  const logg = await db.collection("webhook_logg")
+    .where("webhookId", "==", id)
+    .orderBy("tidspunkt", "desc")
+    .limit(50)
+    .get();
+  success(res, logg.docs.map((d) => ({ id: d.id, ...d.data() })));
+});
+
+// ============================================================
 // Ruter — enkel stibasert ruting
 // ============================================================
 
@@ -829,6 +983,9 @@ const routes: Route[] = [
   // API-nøkler
   { method: "GET",    path: "/api-keys",            handler: listApiKeys },
   { method: "POST",   path: "/api-keys",            handler: createApiKey },
+  // Webhooks
+  { method: "GET",    path: "/webhooks",            handler: listWebhooks },
+  { method: "POST",   path: "/webhooks",            handler: createWebhook },
   // Admin
   { method: "POST",   path: "/admin/set-role",      handler: setAdminRole },
   { method: "GET",    path: "/admin/users",         handler: listAdminUsers },
@@ -1168,6 +1325,51 @@ export const arkiverGamleBilag = onSchedule(
 );
 
 /**
+ * Webhook-trigger: brann webhooks ved bilagsstatus-endring
+ *
+ * Lytter på oppdateringer av bilag i `users/{uid}/bilag/{bilagId}`.
+ * Hvis `status`-feltet endres, leveres en webhook-hendelse til alle
+ * aktive webhooks som er konfigurert for den aktuelle hendelsen.
+ */
+export const bilagWebhookTrigger = onDocumentUpdated(
+  {
+    document: "users/{uid}/bilag/{bilagId}",
+    region: "europe-west1",
+  },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+
+    const statusFør = before.status as string | undefined;
+    const statusEtter = after.status as string | undefined;
+    if (!statusFør || !statusEtter || statusFør === statusEtter) return;
+
+    const uid = event.params.uid;
+    const bilagId = event.params.bilagId;
+
+    // Bestem hvilken webhook-hendelse som skal sendes
+    const hendelsesMap: Record<string, string> = {
+      "bokført":    "bilag.bokfort",
+      "avvist":     "bilag.avvist",
+      "kreditert":  "bilag.kreditert",
+    };
+    const hendelse = hendelsesMap[statusEtter];
+    if (!hendelse) return; // Ikke en hendelse vi sporer
+
+    await fireWebhooks(uid, hendelse as Parameters<typeof fireWebhooks>[1], {
+      bilagId,
+      bilagsnr: after.bilagsnr,
+      dato: after.dato,
+      beskrivelse: after.beskrivelse,
+      belop: after.belop,
+      status: statusEtter,
+      klientId: after.klientId,
+    });
+  }
+);
+
+/**
  * Health check / API-status
  */
 export const health = onRequest(
@@ -1241,6 +1443,14 @@ export const api = onRequest(
       if (req.method === "GET") { await v1GetKlient({ req, res }); return; }
       if (req.method === "PUT") { await v1UpdateKlient({ req, res }); return; }
       if (req.method === "DELETE") { await v1DeleteKlient({ req, res }); return; }
+    }
+
+    // ─── Webhooks: DELETE /webhooks/:id, GET /webhooks/:id/logg ─────────────
+    if (req.path.startsWith("/webhooks/")) {
+      if (req.method === "DELETE") { await deleteWebhook({ req, res }); return; }
+      if (req.method === "GET" && req.path.endsWith("/logg")) {
+        await getWebhookLogg({ req, res }); return;
+      }
     }
 
     // ─── v1 Bilag: GET/PATCH/POST /v1/bilag/:id/... ─────────────────────────

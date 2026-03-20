@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Code, Plus, Copy, Eye, EyeOff, AlertTriangle, ShieldCheck, BookOpen, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { Code, Plus, Copy, Eye, EyeOff, AlertTriangle, ShieldCheck, BookOpen, ExternalLink, Webhook } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -370,6 +371,24 @@ export default function UtviklerPage() {
               <ExternalLink className="h-3 w-3 text-muted-foreground" />
             </a>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Webhooks */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Webhooks</CardTitle>
+          <CardDescription>
+            Motta sanntidsvarslinger til din tjeneste når hendelser inntreffer i ketl regnskap.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/dashboard/utvikler/webhooks">
+            <Button variant="outline">
+              <Webhook className="mr-2 h-4 w-4" />
+              Administrer webhooks
+            </Button>
+          </Link>
         </CardContent>
       </Card>
 
