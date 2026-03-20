@@ -828,7 +828,7 @@ const v1KrediterBilag = withAuth(async ({ user, req, res }) => {
 const v1Resultat = withAuth(async ({ user, req, res }) => {
   const { periode, klientId } = req.query as Record<string, string>;
   let q: FirebaseFirestore.Query = db.collection(`users/${user.uid}/bilag`)
-    .where("status", "==", "bokført");
+    .where("status", "in", ["bokført", "kreditert"]);
   if (klientId) q = q.where("klientId", "==", klientId);
   const snap = await q.get();
 
