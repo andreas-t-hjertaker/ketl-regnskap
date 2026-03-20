@@ -23,10 +23,14 @@ import {
   MapPin,
   X,
   Trash2,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
 import { useKlienter } from "@/hooks/use-klienter";
+import { useBrreg } from "@/hooks/use-brreg";
 import type { Klient } from "@/types";
 
 function initials(navn: string) {
@@ -51,32 +55,40 @@ function formatDato(dato: unknown): string {
   return d.toLocaleDateString("nb-NO", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export default function KlienterPage() {
+function OpprettKlientSkjema({ onLagret, onAvbryt }: { onLagret: () => void; onAvbryt: () => void }) {
   const { user } = useAuth();
-  const { klienter, loading, addKlient, deleteKlient } = useKlienter(user?.uid ?? null);
-  const [visOpprettSkjema, setVisOpprettSkjema] = useState(false);
-  const [søk, setSøk] = useState("");
-  const [lagrer, setLagrer] = useState(false);
+  const { addKlient } = useKlienter(user?.uid ?? null);
   const formRef = useRef<HTMLFormElement>(null);
+  const [lagrer, setLagrer] = useState(false);
 
-  const filtrerte = klienter.filter(
-    (k) =>
-      k.navn.toLowerCase().includes(søk.toLowerCase()) ||
-      k.orgnr.includes(søk) ||
-      (k.bransje ?? "").toLowerCase().includes(søk.toLowerCase())
-  );
+  // Kontrollerte felt for brreg-autofyll
+  const [orgnr, setOrgnr] = useState("");
+  const [navn, setNavn] = useState("");
+  const [adresse, setAdresse] = useState("");
+  const [bransje, setBransje] = useState("");
+
+  const { status: brregStatus, data: brregData } = useBrreg(orgnr);
+
+  // Autofyll når brreg-oppslag lykkes
+  const forrigeBrregOrgnr = useRef<string>("");
+  if (brregStatus === "funnet" && brregData && orgnr !== forrigeBrregOrgnr.current) {
+    forrigeBrregOrgnr.current = orgnr;
+    if (!navn) setNavn(brregData.navn);
+    if (!adresse && brregData.adresse) setAdresse(brregData.adresse);
+    if (!bransje && brregData.bransje) setBransje(brregData.bransje);
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const data: Omit<Klient, "opprettet"> = {
       navn: fd.get("navn") as string,
-      orgnr: fd.get("orgnr") as string,
+      orgnr: orgnr.replace(/\s/g, ""),
       kontaktperson: fd.get("kontaktperson") as string,
       epost: fd.get("epost") as string,
       telefon: (fd.get("telefon") as string) || undefined,
-      bransje: (fd.get("bransje") as string) || undefined,
-      adresse: (fd.get("adresse") as string) || undefined,
+      bransje: bransje || undefined,
+      adresse: adresse || undefined,
     };
 
     setLagrer(true);
@@ -85,9 +97,137 @@ export default function KlienterPage() {
 
     if (id) {
       formRef.current?.reset();
-      setVisOpprettSkjema(false);
+      onLagret();
     }
   }
+
+  const brregMelding = (() => {
+    if (brregStatus === "loading") return { ikon: <Loader2 className="h-3.5 w-3.5 animate-spin" />, tekst: "Slår opp…", farge: "text-muted-foreground" };
+    if (brregStatus === "funnet") return { ikon: <CheckCircle2 className="h-3.5 w-3.5" />, tekst: `Funnet: ${brregData?.enhet.navn}`, farge: "text-green-600" };
+    if (brregStatus === "ikke_funnet") return { ikon: <AlertCircle className="h-3.5 w-3.5" />, tekst: "Org.nr ikke funnet i Brønnøysundregistrene", farge: "text-amber-600" };
+    if (brregStatus === "nettverksfeil") return { ikon: <AlertCircle className="h-3.5 w-3.5" />, tekst: "Kunne ikke kontakte Brønnøysundregistrene", farge: "text-amber-600" };
+    return null;
+  })();
+
+  return (
+    <form ref={formRef} className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>
+      {/* Orgnr med Brreg-status */}
+      <div className="space-y-2">
+        <Label htmlFor="orgnr">Organisasjonsnummer *</Label>
+        <Input
+          id="orgnr"
+          name="orgnr"
+          placeholder="123 456 789"
+          required
+          value={orgnr}
+          onChange={(e) => {
+            setOrgnr(e.target.value);
+            // Nullstill autofylte felt når orgnr endres
+            forrigeBrregOrgnr.current = "";
+            setNavn("");
+            setAdresse("");
+            setBransje("");
+          }}
+        />
+        {brregMelding && (
+          <p className={`flex items-center gap-1 text-xs ${brregMelding.farge}`}>
+            {brregMelding.ikon}
+            {brregMelding.tekst}
+          </p>
+        )}
+      </div>
+
+      {/* Firmanavn — autofylt fra Brreg */}
+      <div className="space-y-2">
+        <Label htmlFor="navn">
+          Firmanavn *
+          {brregStatus === "funnet" && (
+            <span className="ml-2 text-xs font-normal text-green-600">autofylt</span>
+          )}
+        </Label>
+        <Input
+          id="navn"
+          name="navn"
+          placeholder="Eksempel AS"
+          required
+          value={navn}
+          onChange={(e) => setNavn(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="kontaktperson">Kontaktperson *</Label>
+        <Input id="kontaktperson" name="kontaktperson" placeholder="Ola Nordmann" required />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="epost">E-post *</Label>
+        <Input id="epost" name="epost" type="email" placeholder="ola@eksempel.no" required />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="telefon">Telefon</Label>
+        <Input id="telefon" name="telefon" placeholder="+47 900 00 000" />
+      </div>
+
+      {/* Bransje — autofylt fra næringskode */}
+      <div className="space-y-2">
+        <Label htmlFor="bransje">
+          Bransje
+          {brregStatus === "funnet" && bransje && (
+            <span className="ml-2 text-xs font-normal text-green-600">autofylt</span>
+          )}
+        </Label>
+        <Input
+          id="bransje"
+          name="bransje"
+          placeholder="IT og teknologi"
+          value={bransje}
+          onChange={(e) => setBransje(e.target.value)}
+        />
+      </div>
+
+      {/* Adresse — autofylt fra forretningsadresse */}
+      <div className="sm:col-span-2 space-y-2">
+        <Label htmlFor="adresse">
+          Adresse
+          {brregStatus === "funnet" && adresse && (
+            <span className="ml-2 text-xs font-normal text-green-600">autofylt</span>
+          )}
+        </Label>
+        <Input
+          id="adresse"
+          name="adresse"
+          placeholder="Gateveien 1, 0001 Oslo"
+          value={adresse}
+          onChange={(e) => setAdresse(e.target.value)}
+        />
+      </div>
+
+      <div className="sm:col-span-2 flex gap-2">
+        <Button type="submit" disabled={lagrer}>
+          {lagrer ? "Lagrer…" : "Lagre klient"}
+        </Button>
+        <Button type="button" variant="outline" onClick={onAvbryt}>
+          Avbryt
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export default function KlienterPage() {
+  const { user } = useAuth();
+  const { klienter, loading, deleteKlient } = useKlienter(user?.uid ?? null);
+  const [visOpprettSkjema, setVisOpprettSkjema] = useState(false);
+  const [søk, setSøk] = useState("");
+
+  const filtrerte = klienter.filter(
+    (k) =>
+      k.navn.toLowerCase().includes(søk.toLowerCase()) ||
+      k.orgnr.includes(søk) ||
+      (k.bransje ?? "").toLowerCase().includes(søk.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
@@ -124,56 +264,14 @@ export default function KlienterPage() {
             <CardHeader>
               <CardTitle className="text-base">Legg til ny klient</CardTitle>
               <CardDescription>
-                Fyll inn informasjon om bedriften.
+                Skriv inn organisasjonsnummeret — vi henter firmainfo automatisk fra Brønnøysundregistrene.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form
-                ref={formRef}
-                className="grid gap-4 sm:grid-cols-2"
-                onSubmit={handleSubmit}
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="navn">Firmanavn *</Label>
-                  <Input id="navn" name="navn" placeholder="Eksempel AS" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="orgnr">Organisasjonsnummer *</Label>
-                  <Input id="orgnr" name="orgnr" placeholder="123456789" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="kontaktperson">Kontaktperson *</Label>
-                  <Input id="kontaktperson" name="kontaktperson" placeholder="Ola Nordmann" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="epost">E-post *</Label>
-                  <Input id="epost" name="epost" type="email" placeholder="ola@eksempel.no" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="telefon">Telefon</Label>
-                  <Input id="telefon" name="telefon" placeholder="+47 900 00 000" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bransje">Bransje</Label>
-                  <Input id="bransje" name="bransje" placeholder="IT og teknologi" />
-                </div>
-                <div className="sm:col-span-2 space-y-2">
-                  <Label htmlFor="adresse">Adresse</Label>
-                  <Input id="adresse" name="adresse" placeholder="Gateveien 1, 0001 Oslo" />
-                </div>
-                <div className="sm:col-span-2 flex gap-2">
-                  <Button type="submit" disabled={lagrer}>
-                    {lagrer ? "Lagrer…" : "Lagre klient"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setVisOpprettSkjema(false)}
-                  >
-                    Avbryt
-                  </Button>
-                </div>
-              </form>
+              <OpprettKlientSkjema
+                onLagret={() => setVisOpprettSkjema(false)}
+                onAvbryt={() => setVisOpprettSkjema(false)}
+              />
             </CardContent>
           </Card>
         </SlideIn>
