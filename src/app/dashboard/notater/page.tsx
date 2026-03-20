@@ -8,7 +8,7 @@
  */
 
 import { useState } from "react";
-import { Plus, FileText, Clock } from "lucide-react";
+import { Plus, FileText, Clock, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -26,7 +26,7 @@ import { showToast } from "@/lib/toast";
 import { formatDate } from "@/lib/utils";
 
 export default function NotaterPage() {
-  const { notes, loading, createNote } = useNotes();
+  const { notes, loading, createNote, deleteNote } = useNotes();
   const [visSkjema, setVisSkjema] = useState(false);
   const [tittel, setTittel] = useState("");
   const [innhold, setInnhold] = useState("");
@@ -143,7 +143,7 @@ export default function NotaterPage() {
           {notes.map((note) => (
             <StaggerItem key={note.id}>
               <Card
-                className="cursor-pointer hover:border-primary/30 transition-colors"
+                className="cursor-pointer hover:border-primary/30 transition-colors group"
                 onClick={() => setÅpentNotat(åpentNotat === note.id ? null : note.id)}
               >
                 <CardHeader className="pb-2">
@@ -151,9 +151,23 @@ export default function NotaterPage() {
                     <CardTitle className="text-sm font-semibold leading-snug">
                       {note.title}
                     </CardTitle>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                      <Clock className="h-3 w-3" />
-                      {formatDate(note.createdAt)}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {formatDate(note.createdAt)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteNote(note.id);
+                        }}
+                        title="Slett notat"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
                 </CardHeader>

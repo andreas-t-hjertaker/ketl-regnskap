@@ -44,5 +44,16 @@ export function useNotes() {
     return null;
   }
 
-  return { notes, loading, createNote, refetch: fetchNotes };
+  async function deleteNote(id: string): Promise<boolean> {
+    const res = await fetchApi<{ deleted: boolean }>(`/notes/${id}`, {
+      method: "DELETE",
+    });
+    if (res.success) {
+      setNotes((prev) => prev.filter((n) => n.id !== id));
+      return true;
+    }
+    return false;
+  }
+
+  return { notes, loading, createNote, deleteNote, refetch: fetchNotes };
 }

@@ -120,6 +120,23 @@ const getNotes = withAuth(async ({ user, res }) => {
   success(res, notes);
 });
 
+/** DELETE /notes/:id — Slett notat (kun eier) */
+const deleteNote = withAuth(async ({ user, req, res }) => {
+  const noteId = pathSegment(req.path, 1);
+  if (!noteId) return fail(res, "Mangler notat-ID", 400);
+
+  const ref = db.collection("notes").doc(noteId);
+  const doc = await ref.get();
+
+  if (!doc.exists) return fail(res, "Notat ikke funnet", 404);
+  if ((doc.data() as { userId: string }).userId !== user.uid) {
+    return fail(res, "Ingen tilgang", 403);
+  }
+
+  await ref.delete();
+  success(res, { deleted: true });
+});
+
 // ============================================================
 // Stripe-konfigurasjon
 // ============================================================
@@ -1093,6 +1110,7 @@ const routes: Route[] = [
   { method: "GET",    path: "/me",                  handler: getMe },
   { method: "POST",   path: "/notes",               handler: createNote },
   { method: "GET",    path: "/notes",               handler: getNotes },
+  { method: "DELETE", path: "/notes/:id",           handler: deleteNote },
   // Stripe
   { method: "POST",   path: "/stripe/checkout",     handler: createCheckout },
   { method: "POST",   path: "/stripe/portal",       handler: createPortal },
@@ -1572,6 +1590,12 @@ export const api = onRequest(
       if (req.method === "GET") { await v1GetMotpart({ req, res }); return; }
       if (req.method === "PUT") { await v1UpdateMotpart({ req, res }); return; }
       if (req.method === "DELETE") { await v1DeleteMotpart({ req, res }); return; }
+    }
+
+    // ─── Notater: DELETE /notes/:id ─────────────────────────────────────────
+    if (req.method === "DELETE" && req.path.startsWith("/notes/")) {
+      await deleteNote({ req, res });
+      return;
     }
 
     // ─── Webhooks: DELETE /webhooks/:id, GET /webhooks/:id/logg ─────────────
