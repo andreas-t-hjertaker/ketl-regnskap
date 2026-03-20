@@ -272,12 +272,13 @@ export function genererSaftXml(valg: SaftEksportValg): string {
         const mvaInfo = finnMvaKode(p.mvaKode);
         const mvaGrunnlag = Math.max(p.debet ?? 0, p.kredit ?? 0);
         const mvaSats = mvaInfo?.sats ?? 25;
-        const mvaBeløp = mvaGrunnlag * (mvaSats / (100 + mvaSats));
+        // Posteringsbeløp er nettobeløp (eks. MVA) → MVA = grunnlag × sats/100
+        const mvaBeløp = mvaGrunnlag * (mvaSats / 100);
         lines.push(`          <TaxInformation>`);
         lines.push(`            <TaxType>MVA</TaxType>`);
         lines.push(`            <TaxCode>${xmlEsc(p.mvaKode)}</TaxCode>`);
         lines.push(`            <TaxPercentage>${mvaSats}.00</TaxPercentage>`);
-        lines.push(`            <TaxBase>${saftBeløp(mvaGrunnlag - mvaBeløp)}</TaxBase>`);
+        lines.push(`            <TaxBase>${saftBeløp(mvaGrunnlag)}</TaxBase>`);
         lines.push(`            <TaxAmount>`);
         lines.push(`              <Amount>${saftBeløp(mvaBeløp)}</Amount>`);
         lines.push(`            </TaxAmount>`);
