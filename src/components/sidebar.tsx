@@ -34,6 +34,7 @@ import {
   Users,
   BookOpenCheck,
   BookMarked,
+  StickyNote,
 } from "lucide-react";
 import { useAdmin } from "@/hooks/use-admin";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
@@ -48,6 +49,7 @@ const navItems = [
   { href: "/dashboard/rapporter", label: "Rapporter", icon: BarChart3 },
   { href: "/dashboard/aarsoppgjor", label: "Årsoppgjør", icon: BookOpenCheck },
   { href: "/dashboard/kontoplan", label: "Kontoplan", icon: BookMarked },
+  { href: "/dashboard/notater", label: "Notater", icon: StickyNote },
   { href: "/dashboard/abonnement", label: "Abonnement", icon: CreditCard },
   { href: "/dashboard/utvikler", label: "Utvikler", icon: Code },
   { href: "/dashboard/innstillinger", label: "Innstillinger", icon: Settings },
