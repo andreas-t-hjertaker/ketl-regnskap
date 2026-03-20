@@ -4,11 +4,12 @@
  */
 
 import { NS4102_KONTOPLAN, finnMvaKode } from "@/lib/kontoplan";
-import type { Bilag, Klient, Postering } from "@/types";
+import type { Bilag, Klient, Motpart, Postering } from "@/types";
 
 type SaftEksportValg = {
   bilag: (Bilag & { id: string })[];
   klient: Klient;
+  motparter?: (Motpart & { id: string })[];
   periodeStart?: string; // ISO date "2026-01-01"
   periodeSlutt?: string; // ISO date "2026-12-31"
 };
@@ -159,6 +160,74 @@ export function genererSaftXml(valg: SaftEksportValg): string {
     lines.push(`      </TaxTableEntry>`);
   }
   lines.push(`    </TaxTable>`);
+
+  // Kunder (Customers)
+  const kunder = (valg.motparter ?? []).filter((m) => m.type === "kunde");
+  if (kunder.length > 0) {
+    lines.push(`    <Customers>`);
+    for (const k of kunder) {
+      lines.push(`      <Customer>`);
+      lines.push(`        <CustomerID>${xmlEsc(k.id)}</CustomerID>`);
+      lines.push(`        <Name>${xmlEsc(k.navn)}</Name>`);
+      if (k.orgnr) {
+        lines.push(`        <RegistrationNumber>${xmlEsc(k.orgnr)}</RegistrationNumber>`);
+      }
+      if (k.adresse) {
+        lines.push(`        <Address>`);
+        lines.push(`          <StreetName>${xmlEsc(k.adresse)}</StreetName>`);
+        lines.push(`          <Country>NO</Country>`);
+        lines.push(`        </Address>`);
+      }
+      if (k.kontaktperson || k.epost || k.telefon) {
+        lines.push(`        <Contact>`);
+        if (k.kontaktperson) {
+          lines.push(`          <ContactPerson>`);
+          lines.push(`            <FirstName>${xmlEsc(k.kontaktperson.split(" ")[0] ?? "")}</FirstName>`);
+          lines.push(`            <LastName>${xmlEsc(k.kontaktperson.split(" ").slice(1).join(" ") || "-")}</LastName>`);
+          lines.push(`          </ContactPerson>`);
+        }
+        if (k.telefon) lines.push(`          <Telephone>${xmlEsc(k.telefon)}</Telephone>`);
+        if (k.epost) lines.push(`          <Email>${xmlEsc(k.epost)}</Email>`);
+        lines.push(`        </Contact>`);
+      }
+      lines.push(`      </Customer>`);
+    }
+    lines.push(`    </Customers>`);
+  }
+
+  // Leverandører (Suppliers)
+  const leverandorer = (valg.motparter ?? []).filter((m) => m.type === "leverandor");
+  if (leverandorer.length > 0) {
+    lines.push(`    <Suppliers>`);
+    for (const lev of leverandorer) {
+      lines.push(`      <Supplier>`);
+      lines.push(`        <SupplierID>${xmlEsc(lev.id)}</SupplierID>`);
+      lines.push(`        <Name>${xmlEsc(lev.navn)}</Name>`);
+      if (lev.orgnr) {
+        lines.push(`        <RegistrationNumber>${xmlEsc(lev.orgnr)}</RegistrationNumber>`);
+      }
+      if (lev.adresse) {
+        lines.push(`        <Address>`);
+        lines.push(`          <StreetName>${xmlEsc(lev.adresse)}</StreetName>`);
+        lines.push(`          <Country>NO</Country>`);
+        lines.push(`        </Address>`);
+      }
+      if (lev.kontaktperson || lev.epost || lev.telefon) {
+        lines.push(`        <Contact>`);
+        if (lev.kontaktperson) {
+          lines.push(`          <ContactPerson>`);
+          lines.push(`            <FirstName>${xmlEsc(lev.kontaktperson.split(" ")[0] ?? "")}</FirstName>`);
+          lines.push(`            <LastName>${xmlEsc(lev.kontaktperson.split(" ").slice(1).join(" ") || "-")}</LastName>`);
+          lines.push(`          </ContactPerson>`);
+        }
+        if (lev.telefon) lines.push(`          <Telephone>${xmlEsc(lev.telefon)}</Telephone>`);
+        if (lev.epost) lines.push(`          <Email>${xmlEsc(lev.epost)}</Email>`);
+        lines.push(`        </Contact>`);
+      }
+      lines.push(`      </Supplier>`);
+    }
+    lines.push(`    </Suppliers>`);
+  }
 
   lines.push(`  </MasterFiles>`);
 

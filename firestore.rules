@@ -84,6 +84,17 @@ service cloud.firestore {
       match /counters/{counterId} {
         allow read, write: if erEier(uid);
       }
+
+      // Motparter (kunder og leverandører) — SAF-T-krav
+      match /motparter/{motpartId} {
+        allow read: if erEier(uid);
+        allow create: if erEier(uid) &&
+          request.resource.data.type in ["kunde", "leverandor"] &&
+          request.resource.data.navn is string &&
+          request.resource.data.klientId is string;
+        allow update: if erEier(uid);
+        allow delete: if erEier(uid);
+      }
     }
   }
 }

@@ -86,6 +86,20 @@ export type Klient = {
   opprettet: Date;
 };
 
+/** Motpart — kunde eller leverandør (Bokfl. + SAF-T krav) */
+export type Motpart = {
+  /** "kunde" (debitorer) eller "leverandor" (kreditorer) */
+  type: "kunde" | "leverandor";
+  navn: string;
+  orgnr?: string;           // 9 siffer, valgfritt for privatpersoner
+  kontaktperson?: string;
+  epost?: string;
+  telefon?: string;
+  adresse?: string;
+  klientId: string;         // Hvilken regnskapsklient motparten tilhører
+  opprettet: Date;
+};
+
 /** Kontoplan-konto (NS 4102 standard) */
 export type Konto = {
   nummer: string;       // f.eks. "3000"
@@ -108,6 +122,8 @@ export type Bilag = {
   vedleggUrl?: string;  // Firebase Storage URL for kvittering/faktura
   posteringer: Postering[];
   aiForslag?: AiForslag;
+  /** Motpart-ID (kunde eller leverandør) koblet til dette bilaget */
+  motpartId?: string;
   /** ID til korrigeringsbilag som reverserer dette bilaget */
   kreditertAvId?: string;
   /** ID til originalbilag som dette bilaget reverserer */

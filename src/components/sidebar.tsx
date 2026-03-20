@@ -42,6 +42,7 @@ const navItems = [
   { href: "/dashboard", label: "Oversikt", icon: LayoutDashboard },
   { href: "/dashboard/bilag", label: "Bilag", icon: Receipt },
   { href: "/dashboard/klienter", label: "Klienter", icon: Building2 },
+  { href: "/dashboard/motparter", label: "Motparter", icon: Users },
   { href: "/dashboard/rapporter", label: "Rapporter", icon: BarChart3 },
   { href: "/dashboard/abonnement", label: "Abonnement", icon: CreditCard },
   { href: "/dashboard/utvikler", label: "Utvikler", icon: Code },
