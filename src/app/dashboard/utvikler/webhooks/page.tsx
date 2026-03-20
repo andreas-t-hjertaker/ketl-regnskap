@@ -64,31 +64,31 @@ export default function WebhooksPage() {
 
   async function handleOpprett() {
     if (!url || valgte.size === 0) {
-      showToast("error", "Fyll inn URL og velg minst én hendelse.");
+      showToast.error("Fyll inn URL og velg minst én hendelse.");
       return;
     }
     try { new URL(url); } catch {
-      showToast("error", "Ugyldig URL.");
+      showToast.error("Ugyldig URL.");
       return;
     }
     setLagrer(true);
     const ok = await createWebhook(url, [...valgte]);
     setLagrer(false);
     if (ok) {
-      showToast("success", "Webhook opprettet.");
+      showToast.success("Webhook opprettet.");
       setUrl("");
       setValgte(new Set());
       setVisSkjema(false);
     } else {
-      showToast("error", "Kunne ikke opprette webhook.");
+      showToast.error("Kunne ikke opprette webhook.");
     }
   }
 
   async function handleSlett(id: string) {
     if (!confirm("Slett denne webhook-konfigurasjonen?")) return;
     const ok = await deleteWebhook(id);
-    if (ok) showToast("success", "Webhook slettet.");
-    else showToast("error", "Kunne ikke slette webhook.");
+    if (ok) showToast.success("Webhook slettet.");
+    else showToast.error("Kunne ikke slette webhook.");
   }
 
   async function toggleLogg(id: string) {
