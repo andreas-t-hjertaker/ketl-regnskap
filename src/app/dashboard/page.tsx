@@ -57,7 +57,7 @@ function beregnInntektOgKostnad(bilag: ReturnType<typeof useBilag>["bilag"]) {
   let kostnader = 0;
 
   for (const b of bilag) {
-    if (b.status !== "bokført") continue;
+    if (b.status !== "bokført" && b.status !== "kreditert") continue;
     for (const p of b.posteringer) {
       const klasse = p.kontonr[0];
       if (klasse === "3") inntekter += p.kredit - p.debet;
