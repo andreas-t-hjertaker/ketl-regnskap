@@ -52,7 +52,7 @@ export function useMotparter(uid: string | null, klientId?: string | null) {
           ...data,
           opprettet: new Date(),
         });
-        await loggHandling(uid, "klient_opprettet", "klient", ref.id, {
+        await loggHandling(uid, "motpart_opprettet", "motpart", ref.id, {
           navn: data.navn,
           type: data.type,
         });
@@ -71,7 +71,7 @@ export function useMotparter(uid: string | null, klientId?: string | null) {
       if (!uid || !path) return;
       try {
         await updateDocument(path, id, data);
-        await loggHandling(uid, "klient_oppdatert", "klient", id, data as Record<string, unknown>);
+        await loggHandling(uid, "motpart_oppdatert", "motpart", id, data as Record<string, unknown>);
       } catch {
         showToast.error("Klarte ikke oppdatere motpart.");
       }
@@ -84,7 +84,7 @@ export function useMotparter(uid: string | null, klientId?: string | null) {
       if (!uid || !path) return;
       try {
         await deleteDocument(path, id);
-        await loggHandling(uid, "klient_slettet", "klient", id);
+        await loggHandling(uid, "motpart_slettet", "motpart", id);
         showToast.success("Motpart slettet.");
       } catch {
         showToast.error("Klarte ikke slette motpart.");

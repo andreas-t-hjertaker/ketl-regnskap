@@ -40,6 +40,9 @@ const HANDLING_ETIKETT: Record<AuditHandling, { label: string; variant: "default
   klient_opprettet:    { label: "Klient opprettet", variant: "default" },
   klient_oppdatert:    { label: "Klient oppdatert", variant: "secondary" },
   klient_slettet:      { label: "Klient slettet", variant: "destructive" },
+  motpart_opprettet:   { label: "Motpart opprettet", variant: "default" },
+  motpart_oppdatert:   { label: "Motpart oppdatert", variant: "secondary" },
+  motpart_slettet:     { label: "Motpart slettet", variant: "destructive" },
   fil_lastet_opp:      { label: "Fil lastet opp", variant: "secondary" },
   fil_slettet:         { label: "Fil slettet", variant: "destructive" },
 };

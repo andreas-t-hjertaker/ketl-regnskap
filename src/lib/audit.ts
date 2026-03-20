@@ -16,6 +16,9 @@ export type AuditHandling =
   | "klient_opprettet"
   | "klient_oppdatert"
   | "klient_slettet"
+  | "motpart_opprettet"
+  | "motpart_oppdatert"
+  | "motpart_slettet"
   | "bilag_kreditert"
   | "bilag_arkivert"
   | "fil_lastet_opp"
@@ -23,7 +26,7 @@ export type AuditHandling =
 
 export type AuditEntry = {
   handling: AuditHandling;
-  entitetType: "bilag" | "klient" | "fil";
+  entitetType: "bilag" | "klient" | "motpart" | "fil";
   entitetId: string;
   utfortAv: "bruker" | "ai" | "system";
   uid: string;

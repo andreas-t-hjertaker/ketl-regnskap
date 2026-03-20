@@ -8,7 +8,7 @@ import type { AuditHandling } from "@/lib/audit";
 export type AuditLogEntry = {
   id: string;
   handling: AuditHandling;
-  entitetType: "bilag" | "klient" | "fil";
+  entitetType: "bilag" | "klient" | "motpart" | "fil";
   entitetId: string;
   utfortAv: "bruker" | "ai" | "system";
   uid: string;
