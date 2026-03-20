@@ -34,6 +34,8 @@ import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
 import { useBilag, type BilagMedId } from "@/hooks/use-bilag";
 import { useBilagUpload } from "@/hooks/use-bilag-upload";
+import { useMotparter } from "@/hooks/use-motparter";
+import { useAktivKlient } from "@/hooks/use-aktiv-klient";
 import type { Bilag } from "@/types";
 
 type BilagRow = {
@@ -76,7 +78,9 @@ function formatNOK(value: number) {
 
 export default function BilagPage() {
   const { user } = useAuth();
-  const { bilag, loading, updateBilag, deleteBilag, godkjennBilag, avvisBilag, krediterBilag } = useBilag(user?.uid ?? null);
+  const { aktivKlientId } = useAktivKlient();
+  const { bilag, loading, updateBilag, deleteBilag, godkjennBilag, avvisBilag, krediterBilag } = useBilag(user?.uid ?? null, aktivKlientId);
+  const { motparter } = useMotparter(user?.uid ?? null);
   const { uploadFlere, lasterOpp, fremdrift } = useBilagUpload(user?.uid ?? null);
   const [dragOver, setDragOver] = useState(false);
   const [selectedBilag, setSelectedBilag] = useState<BilagMedId | null>(null);
@@ -279,7 +283,11 @@ export default function BilagPage() {
                   Bilag #{selectedBilag.bilagsnr} — {selectedBilag.beskrivelse}
                 </CardTitle>
                 <CardDescription>
-                  {selectedBilag.leverandor} · {selectedBilag.dato} · {formatNOK(selectedBilag.belop)}
+                  {selectedBilag.motpartId
+                    ? motparter.find((m) => m.id === selectedBilag.motpartId)?.navn ?? selectedBilag.leverandor
+                    : selectedBilag.leverandor
+                  }
+                  {" · "}{selectedBilag.dato} · {formatNOK(selectedBilag.belop)}
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
