@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, addDoc, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase/firestore";
 import { updateProfile } from "firebase/auth";
 import { Button } from "@/components/ui/button";
@@ -55,10 +55,24 @@ export function OnboardingStepper() {
       await updateProfile(firebaseUser, { displayName: firmanavn });
     }
 
+    // Opprett første klient hvis firmanavn er angitt
+    if (firmanavn) {
+      await addDoc(
+        collection(db, "users", firebaseUser.uid, "klienter"),
+        {
+          navn: firmanavn,
+          orgnr: orgnr.replace(/\s/g, ""),
+          kontaktperson: "",
+          epost: firebaseUser.email ?? "",
+          opprettet: new Date(),
+        }
+      );
+    }
+
     // Marker onboarding som fullført
     await setDoc(
       doc(db, "users", firebaseUser.uid),
-      { onboardingComplete: true, firmanavn, orgnr },
+      { onboardingComplete: true },
       { merge: true }
     );
     setShow(false);
