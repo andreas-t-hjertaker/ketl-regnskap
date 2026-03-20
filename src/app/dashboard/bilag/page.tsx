@@ -76,7 +76,7 @@ function formatNOK(value: number) {
 
 export default function BilagPage() {
   const { user } = useAuth();
-  const { bilag, loading, godkjennBilag, avvisBilag, krediterBilag } = useBilag(user?.uid ?? null);
+  const { bilag, loading, updateBilag, deleteBilag, godkjennBilag, avvisBilag, krediterBilag } = useBilag(user?.uid ?? null);
   const { uploadFlere, lasterOpp, fremdrift } = useBilagUpload(user?.uid ?? null);
   const [dragOver, setDragOver] = useState(false);
   const [selectedBilag, setSelectedBilag] = useState<BilagMedId | null>(null);
@@ -361,15 +361,47 @@ export default function BilagPage() {
             )}
             {(!selectedBilag.aiForslag || selectedBilag.status !== "foreslått") && (
               <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {selectedBilag.status === "ubehandlet"
-                    ? "AI-analyse pågår. Kom tilbake om litt."
-                    : selectedBilag.status === "bokført"
-                    ? "Dette bilaget er bokført."
-                    : selectedBilag.status === "kreditert"
-                    ? "Dette bilaget er kreditert og reversert."
-                    : "Dette bilaget er avvist."}
-                </p>
+                {/* Manuelt utkast — kan bokføres eller slettes */}
+                {selectedBilag.status === "ubehandlet" && !selectedBilag.aiForslag && selectedBilag.posteringer.length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Utkast — klart til bokføring.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          await updateBilag(selectedBilag.id, { status: "bokført" });
+                          setSelectedBilag(null);
+                        }}
+                      >
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        Bokfør
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={async () => {
+                          await deleteBilag(selectedBilag.id);
+                          setSelectedBilag(null);
+                        }}
+                      >
+                        Slett utkast
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {selectedBilag.status === "ubehandlet"
+                      ? "AI-analyse pågår. Kom tilbake om litt."
+                      : selectedBilag.status === "bokført"
+                      ? "Dette bilaget er bokført."
+                      : selectedBilag.status === "kreditert"
+                      ? "Dette bilaget er kreditert og reversert."
+                      : "Dette bilaget er avvist."}
+                  </p>
+                )}
                 {selectedBilag.status === "bokført" && !selectedBilag.kreditertAvId && (
                   <div className="mt-3">
                     <Button
