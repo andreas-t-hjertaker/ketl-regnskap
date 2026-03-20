@@ -24,6 +24,7 @@ import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
 import { useRapporter } from "@/hooks/use-rapporter";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
+import { useMotparter } from "@/hooks/use-motparter";
 import { lastNedSaftXml, saftMetadata } from "@/lib/saft-eksport";
 import { eksporterResultatCsv } from "@/lib/eksport";
 
@@ -64,6 +65,7 @@ export default function RapporterPage() {
     user?.uid ?? null,
     aktivKlientId
   );
+  const { motparter } = useMotparter(user?.uid ?? null, aktivKlientId);
   const [genererSaft, setGenererSaft] = useState(false);
   const periodeAlternativer = useMemo(
     () => genererPerioder(bilag.map((b) => b.dato)),
@@ -460,7 +462,7 @@ export default function RapporterPage() {
                     if (!aktivKlient) return;
                     setGenererSaft(true);
                     try {
-                      lastNedSaftXml({ bilag, klient: aktivKlient });
+                      lastNedSaftXml({ bilag, klient: aktivKlient, motparter });
                     } finally {
                       setGenererSaft(false);
                     }

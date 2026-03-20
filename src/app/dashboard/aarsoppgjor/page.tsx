@@ -34,6 +34,7 @@ import { SlideIn } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
 import { useRapporter } from "@/hooks/use-rapporter";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
+import { useMotparter } from "@/hooks/use-motparter";
 import { lastNedSaftXml } from "@/lib/saft-eksport";
 import { eksporterResultatCsv } from "@/lib/eksport";
 
@@ -58,6 +59,7 @@ export default function AarsoppgjorPage() {
     user?.uid ?? null,
     aktivKlientId ?? undefined
   );
+  const { motparter } = useMotparter(user?.uid ?? null, aktivKlientId);
 
   const tilgjengeligeÅr = useMemo(() => {
     const fraBilag = new Set(bilag.map((b) => b.dato.slice(0, 4)));
@@ -81,6 +83,7 @@ export default function AarsoppgjorPage() {
     lastNedSaftXml({
       bilag: bilagForÅr,
       klient: aktivKlient,
+      motparter,
       periodeStart: `${valgtÅr}-01-01`,
       periodeSlutt: `${valgtÅr}-12-31`,
     });
