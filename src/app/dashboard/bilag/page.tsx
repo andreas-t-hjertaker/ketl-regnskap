@@ -24,7 +24,9 @@ import {
   ExternalLink,
   RotateCcw,
   Archive,
+  Download,
 } from "lucide-react";
+import { eksporterBilagCsv, eksporterPosteringerCsv } from "@/lib/eksport";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
 import { useBilag, type BilagMedId } from "@/hooks/use-bilag";
@@ -385,6 +387,30 @@ export default function BilagPage() {
               </CardContent>
             )}
           </Card>
+        </SlideIn>
+      )}
+
+      {/* Eksport */}
+      {!loading && bilag.length > 0 && (
+        <SlideIn direction="up" delay={0.18}>
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => eksporterBilagCsv(bilag)}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Eksporter bilagliste (CSV)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => eksporterPosteringerCsv(bilag)}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Posteringsliste (CSV)
+            </Button>
+          </div>
         </SlideIn>
       )}
 

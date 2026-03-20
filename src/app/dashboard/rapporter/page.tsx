@@ -25,6 +25,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useRapporter } from "@/hooks/use-rapporter";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
 import { lastNedSaftXml, saftMetadata } from "@/lib/saft-eksport";
+import { eksporterResultatCsv } from "@/lib/eksport";
 
 type Fane = "resultat" | "balanse" | "mva" | "saft";
 
@@ -87,10 +88,15 @@ export default function RapporterPage() {
               Resultatregnskap, balanse, MVA-rapport og SAF-T-eksport.
             </p>
           </div>
-          <Button variant="outline" disabled>
-            <Download className="mr-2 h-4 w-4" />
-            Eksporter
-          </Button>
+          {aktivFane === "resultat" && !ingenData && (
+            <Button
+              variant="outline"
+              onClick={() => eksporterResultatCsv(resultat, valgtPeriode)}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Eksporter CSV
+            </Button>
+          )}
         </div>
       </SlideIn>
 

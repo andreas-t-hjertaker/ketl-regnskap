@@ -26,11 +26,13 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  Download,
 } from "lucide-react";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
 import { useKlienter } from "@/hooks/use-klienter";
 import { useBrreg } from "@/hooks/use-brreg";
+import { eksporterKlienterCsv } from "@/lib/eksport";
 import type { Klient } from "@/types";
 
 function initials(navn: string) {
@@ -241,7 +243,17 @@ export default function KlienterPage() {
               {!loading && `${klienter.length} aktive klienter.`}
             </p>
           </div>
-          <Button onClick={() => setVisOpprettSkjema(!visOpprettSkjema)}>
+          <div className="flex gap-2">
+            {!loading && klienter.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={() => eksporterKlienterCsv(klienter)}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Eksporter CSV
+              </Button>
+            )}
+            <Button onClick={() => setVisOpprettSkjema(!visOpprettSkjema)}>
             {visOpprettSkjema ? (
               <>
                 <X className="mr-2 h-4 w-4" />
@@ -254,6 +266,7 @@ export default function KlienterPage() {
               </>
             )}
           </Button>
+          </div>
         </div>
       </SlideIn>
 
