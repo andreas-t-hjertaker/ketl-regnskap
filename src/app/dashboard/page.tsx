@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/hooks/use-auth";
 import { useBilag } from "@/hooks/use-bilag";
+import { useAktivKlient } from "@/hooks/use-aktiv-klient";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -69,7 +70,8 @@ function beregnInntektOgKostnad(bilag: ReturnType<typeof useBilag>["bilag"]) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { bilag, loading } = useBilag(user?.uid ?? null);
+  const { aktivKlientId, aktivKlient, visAlleKlienter } = useAktivKlient();
+  const { bilag, loading } = useBilag(user?.uid ?? null, aktivKlientId);
 
   const inntektKostnad = beregnInntektOgKostnad(bilag);
   const ubehandledeBilag = bilag.filter((b) => b.status === "ubehandlet").slice(0, 5);
@@ -89,7 +91,10 @@ export default function DashboardPage() {
             })()}{user?.displayName ? `, ${user.displayName}` : ""}
           </h1>
           <p className="text-muted-foreground">
-            Her er regnskapsoversikten din.
+            {visAlleKlienter
+              ? "Her er regnskapsoversikten din."
+              : <>Oversikt for <span className="font-medium text-foreground">{aktivKlient?.navn}</span>.</>
+            }
           </p>
         </div>
       </SlideIn>
