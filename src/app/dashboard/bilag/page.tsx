@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,7 +82,23 @@ export default function BilagPage() {
   const antallUbehandlet = bilag.filter((b) => b.status === "ubehandlet").length;
   const antallForeslått = bilag.filter((b) => b.status === "foreslått").length;
 
-  const tableData: BilagRow[] = bilag.map((b) => ({
+  // ── Filtrering ──────────────────────────────────────────────────────────────
+  const [filterStatus, setFilterStatus] = useState<Bilag["status"] | "alle">("alle");
+  const [filterFra, setFilterFra] = useState("");
+  const [filterTil, setFilterTil] = useState("");
+
+  const filtrerteBilag = useMemo(() => {
+    return bilag.filter((b) => {
+      if (filterStatus !== "alle" && b.status !== filterStatus) return false;
+      if (filterFra && b.dato < filterFra) return false;
+      if (filterTil && b.dato > filterTil) return false;
+      return true;
+    });
+  }, [bilag, filterStatus, filterFra, filterTil]);
+
+  const harAktiveFiltre = filterStatus !== "alle" || filterFra !== "" || filterTil !== "";
+
+  const tableData: BilagRow[] = filtrerteBilag.map((b) => ({
     id: b.id,
     bilagsnr: b.bilagsnr,
     dato: b.dato,
@@ -390,6 +406,78 @@ export default function BilagPage() {
         </SlideIn>
       )}
 
+      {/* Filter-panel */}
+      {!loading && bilag.length > 0 && (
+        <SlideIn direction="up" delay={0.17}>
+          <Card className="border-border/40">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex flex-wrap gap-3 items-end">
+                {/* Status-filter */}
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Status</p>
+                  <div className="flex flex-wrap gap-1">
+                    {(["alle", "ubehandlet", "foreslått", "bokført", "avvist", "kreditert", "arkivert"] as const).map((s) => (
+                      <Button
+                        key={s}
+                        size="sm"
+                        variant={filterStatus === s ? "default" : "outline"}
+                        className="h-7 text-xs"
+                        onClick={() => setFilterStatus(s)}
+                      >
+                        {s === "alle" ? "Alle" : statusBadge[s as Bilag["status"]]?.label ?? s}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Dato-filter */}
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Dato fra</p>
+                  <Input
+                    type="date"
+                    value={filterFra}
+                    onChange={(e) => setFilterFra(e.target.value)}
+                    className="h-7 text-xs w-36"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Dato til</p>
+                  <Input
+                    type="date"
+                    value={filterTil}
+                    onChange={(e) => setFilterTil(e.target.value)}
+                    className="h-7 text-xs w-36"
+                  />
+                </div>
+
+                {/* Tilbakestill */}
+                {harAktiveFiltre && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs text-muted-foreground"
+                    onClick={() => {
+                      setFilterStatus("alle");
+                      setFilterFra("");
+                      setFilterTil("");
+                    }}
+                  >
+                    <X className="mr-1 h-3 w-3" />
+                    Nullstill filter
+                  </Button>
+                )}
+
+                {harAktiveFiltre && (
+                  <p className="text-xs text-muted-foreground self-end pb-0.5">
+                    Viser {filtrerteBilag.length} av {bilag.length} bilag
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </SlideIn>
+      )}
+
       {/* Eksport */}
       {!loading && bilag.length > 0 && (
         <SlideIn direction="up" delay={0.18}>
@@ -397,7 +485,7 @@ export default function BilagPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => eksporterBilagCsv(bilag)}
+              onClick={() => eksporterBilagCsv(filtrerteBilag)}
             >
               <Download className="mr-2 h-4 w-4" />
               Eksporter bilagliste (CSV)
@@ -405,7 +493,7 @@ export default function BilagPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => eksporterPosteringerCsv(bilag)}
+              onClick={() => eksporterPosteringerCsv(filtrerteBilag)}
             >
               <Download className="mr-2 h-4 w-4" />
               Posteringsliste (CSV)
