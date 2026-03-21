@@ -83,7 +83,9 @@ export default function BilagPage() {
   const { motparter } = useMotparter(user?.uid ?? null);
   const { uploadFlere, lasterOpp, fremdrift } = useBilagUpload(user?.uid ?? null, aktivKlientId);
   const [dragOver, setDragOver] = useState(false);
-  const [selectedBilag, setSelectedBilag] = useState<BilagMedId | null>(null);
+  const [selectedBilagId, setSelectedBilagId] = useState<string | null>(null);
+  // Alltid avlest fra live bilag-array så detaljer er oppdaterte (f.eks. etter AI-analyse)
+  const selectedBilag = selectedBilagId ? (bilag.find((b) => b.id === selectedBilagId) ?? null) : null;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const antallUbehandlet = bilag.filter((b) => b.status === "ubehandlet").length;
@@ -301,7 +303,7 @@ export default function BilagPage() {
                     <ExternalLink className="h-4 w-4" />
                   </a>
                 )}
-                <Button variant="ghost" size="sm" onClick={() => setSelectedBilag(null)}>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedBilagId(null)}>
                   Lukk
                 </Button>
               </div>
@@ -347,7 +349,7 @@ export default function BilagPage() {
                     size="sm"
                     onClick={async () => {
                       await godkjennBilag(selectedBilag.id);
-                      setSelectedBilag(null);
+                      setSelectedBilagId(null);
                     }}
                   >
                     <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -359,7 +361,7 @@ export default function BilagPage() {
                     className="text-destructive"
                     onClick={async () => {
                       await avvisBilag(selectedBilag.id);
-                      setSelectedBilag(null);
+                      setSelectedBilagId(null);
                     }}
                   >
                     Avvis
@@ -380,7 +382,7 @@ export default function BilagPage() {
                         size="sm"
                         onClick={async () => {
                           await bokforBilag(selectedBilag.id);
-                          setSelectedBilag(null);
+                          setSelectedBilagId(null);
                         }}
                       >
                         <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -392,7 +394,7 @@ export default function BilagPage() {
                         className="text-destructive"
                         onClick={async () => {
                           await deleteBilag(selectedBilag.id);
-                          setSelectedBilag(null);
+                          setSelectedBilagId(null);
                         }}
                       >
                         Slett utkast
@@ -418,7 +420,7 @@ export default function BilagPage() {
                       className="text-destructive border-destructive/30 hover:bg-destructive/5"
                       onClick={async () => {
                         await krediterBilag(selectedBilag.id);
-                        setSelectedBilag(null);
+                        setSelectedBilagId(null);
                       }}
                     >
                       <RotateCcw className="mr-2 h-4 w-4" />
@@ -585,7 +587,7 @@ export default function BilagPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setSelectedBilag(b)}
+                      onClick={() => setSelectedBilagId(b.id)}
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
