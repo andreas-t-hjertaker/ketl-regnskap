@@ -622,8 +622,8 @@ const updateFeatureFlag = withAdmin(async ({ req, res }) => {
 const deleteAccount = withAuth(async ({ user, res }) => {
   const batch = db.batch();
 
-  const subRef = db.collection("subscriptions").doc(user.uid);
-  batch.delete(subRef);
+  // Slett toppnivå-dokumenter (subscriptions, apiKeys, notes)
+  batch.delete(db.collection("subscriptions").doc(user.uid));
 
   const keysSnap = await db.collection("apiKeys").where("userId", "==", user.uid).get();
   keysSnap.docs.forEach((d) => batch.delete(d.ref));
@@ -631,7 +631,18 @@ const deleteAccount = withAuth(async ({ user, res }) => {
   const notesSnap = await db.collection("notes").where("userId", "==", user.uid).get();
   notesSnap.docs.forEach((d) => batch.delete(d.ref));
 
+  const webhooksSnap = await db.collection("webhooks").where("userId", "==", user.uid).get();
+  webhooksSnap.docs.forEach((d) => batch.delete(d.ref));
+
   await batch.commit();
+
+  // Slett brukerens Firestore-data rekursivt (bilag, klienter, motparter, audit_log, osv.)
+  await db.recursiveDelete(db.collection("users").doc(user.uid));
+
+  // Slett Firebase Auth-kontoen via Admin SDK slik at klienten ikke trenger
+  // å kalle deleteUser() (som krever nylig innlogging og kan feile)
+  await admin.auth().deleteUser(user.uid);
+
   success(res, { deleted: true });
 });
 

@@ -12,7 +12,6 @@ import {
   linkWithPopup,
   unlink,
   GoogleAuthProvider,
-  deleteUser,
 } from "firebase/auth";
 import { useAuth } from "@/hooks/use-auth";
 import { uploadFile } from "@/lib/firebase/storage";
@@ -176,12 +175,12 @@ export default function InnstillingerPage() {
     if (deleteConfirm !== "SLETT" || !firebaseUser) return;
     setDeleting(true);
     try {
+      // Cloud Function sletter all Firestore-data og Auth-kontoen via Admin SDK
       await apiDelete("/account");
-      await deleteUser(firebaseUser);
       showToast.success("Kontoen din er slettet");
     } catch {
       showToast.error(
-        "Kunne ikke slette konto. Du kan trenge å logge inn på nytt."
+        "Kunne ikke slette konto. Prøv igjen eller kontakt support."
       );
     }
     setDeleting(false);
