@@ -2,14 +2,14 @@
 
 import { useState, useCallback } from "react";
 import { uploadFileWithProgress } from "@/lib/firebase/storage";
-import { addDocument, updateDocument } from "@/lib/firebase/firestore";
+import { addDocument, updateDocument, nestebilagsnummer } from "@/lib/firebase/firestore";
 import { loggHandling } from "@/lib/audit";
 import { showToast } from "@/lib/toast";
 
 const TILLATTE_TYPER = ["application/pdf", "image/jpeg", "image/png", "image/heic", "image/heif"];
 const MAKS_STORRELSE_MB = 10;
 
-export function useBilagUpload(uid: string | null) {
+export function useBilagUpload(uid: string | null, klientId?: string | null) {
   const [lasterOpp, setLasterOpp] = useState(false);
   const [fremdrift, setFremdrift] = useState(0);
 
@@ -44,19 +44,24 @@ export function useBilagUpload(uid: string | null) {
           await loggHandling(uid, "fil_lastet_opp", "fil", bilagId, { filnavn: fil.name, url });
           showToast.success(`Fil lastet opp og koblet til bilag.`);
         } else {
+          // Hent neste bilagsnummer via atomisk transaksjon
+          const dato = new Date().toISOString().split("T")[0];
+          const år = parseInt(dato.slice(0, 4), 10);
+          const bilagsnr = await nestebilagsnummer(uid, år);
+
           // Opprett nytt bilag med "ubehandlet" status
           const ref = await addDocument(`users/${uid}/bilag`, {
-            bilagsnr: Date.now(), // Midlertidig, erstattes av cloud function / hook
-            dato: new Date().toISOString().split("T")[0],
+            bilagsnr,
+            dato,
             beskrivelse: fil.name.replace(/\.[^.]+$/, ""),
             belop: 0,
-            klientId: "",
+            klientId: klientId ?? "",
             status: "ubehandlet",
             vedleggUrl: url,
             posteringer: [],
           });
           await loggHandling(uid, "fil_lastet_opp", "fil", ref.id, { filnavn: fil.name, url });
-          showToast.success(`Bilag opprettet fra fil: ${fil.name}`);
+          showToast.success(`Bilag #${bilagsnr} opprettet fra fil: ${fil.name}`);
         }
 
         return url;
@@ -68,7 +73,7 @@ export function useBilagUpload(uid: string | null) {
         setFremdrift(0);
       }
     },
-    [uid]
+    [uid, klientId]
   );
 
   const uploadFlere = useCallback(

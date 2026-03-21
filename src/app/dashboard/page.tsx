@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/hooks/use-auth";
 import { useBilag } from "@/hooks/use-bilag";
+import { useAktivKlient } from "@/hooks/use-aktiv-klient";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -21,6 +22,8 @@ import {
   CheckCircle2,
   Clock,
   BarChart3,
+  RotateCcw,
+  Archive,
 } from "lucide-react";
 import {
   SlideIn,
@@ -28,6 +31,7 @@ import {
   StaggerItem,
   AnimatedCounter,
 } from "@/components/motion";
+import { Varsler } from "@/components/varsler";
 
 function formatNOK(value: number) {
   return new Intl.NumberFormat("nb-NO", {
@@ -53,7 +57,7 @@ function beregnInntektOgKostnad(bilag: ReturnType<typeof useBilag>["bilag"]) {
   let kostnader = 0;
 
   for (const b of bilag) {
-    if (b.status !== "bokført") continue;
+    if (b.status !== "bokført" && b.status !== "kreditert") continue;
     for (const p of b.posteringer) {
       const klasse = p.kontonr[0];
       if (klasse === "3") inntekter += p.kredit - p.debet;
@@ -66,7 +70,8 @@ function beregnInntektOgKostnad(bilag: ReturnType<typeof useBilag>["bilag"]) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { bilag, loading } = useBilag(user?.uid ?? null);
+  const { aktivKlientId, aktivKlient, visAlleKlienter } = useAktivKlient();
+  const { bilag, loading } = useBilag(user?.uid ?? null, aktivKlientId);
 
   const inntektKostnad = beregnInntektOgKostnad(bilag);
   const ubehandledeBilag = bilag.filter((b) => b.status === "ubehandlet").slice(0, 5);
@@ -86,10 +91,16 @@ export default function DashboardPage() {
             })()}{user?.displayName ? `, ${user.displayName}` : ""}
           </h1>
           <p className="text-muted-foreground">
-            Her er regnskapsoversikten din.
+            {visAlleKlienter
+              ? "Her er regnskapsoversikten din."
+              : <>Oversikt for <span className="font-medium text-foreground">{aktivKlient?.navn}</span>.</>
+            }
           </p>
         </div>
       </SlideIn>
+
+      {/* Varsler */}
+      {!loading && <Varsler bilag={bilag} />}
 
       {/* KPI-kort */}
       {loading ? (
@@ -208,8 +219,17 @@ export default function DashboardPage() {
                   foreslått: "text-blue-500",
                   ubehandlet: "text-orange-500",
                   avvist: "text-destructive",
+                  kreditert: "text-muted-foreground",
+                  arkivert: "text-muted-foreground",
                 };
-                const StatusIkon = { bokført: CheckCircle2, foreslått: Bot, ubehandlet: Clock, avvist: AlertCircle }[b.status];
+                const StatusIkon = {
+                  bokført: CheckCircle2,
+                  foreslått: Bot,
+                  ubehandlet: Clock,
+                  avvist: AlertCircle,
+                  kreditert: RotateCcw,
+                  arkivert: Archive,
+                }[b.status];
                 return (
                   <StaggerItem key={b.id}>
                     <div className="flex items-start gap-3 rounded-lg border border-border/50 bg-card/50 px-4 py-3">

@@ -60,6 +60,20 @@ export type UserSubscription = {
   cancelAtPeriodEnd: boolean;
 };
 
+/** Tilgjengelige API-scopes */
+export const API_SCOPES = [
+  "bilag:read",
+  "bilag:write",
+  "klienter:read",
+  "klienter:write",
+  "rapporter:read",
+  "saft:export",
+  "ai:chat",
+  "admin",
+] as const;
+
+export type ApiScope = typeof API_SCOPES[number];
+
 /** API-nøkkel lagret i Firestore */
 export type ApiKey = {
   id: string;
@@ -70,6 +84,7 @@ export type ApiKey = {
   lastUsedAt: Date | null;
   expiresAt: Date | null;
   revoked: boolean;
+  scopes: ApiScope[];     // Tilgangsnivåer for denne nøkkelen
 };
 
 // ─── Regnskapsdomene ────────────────────────────────────────────────────────
@@ -83,6 +98,50 @@ export type Klient = {
   telefon?: string;
   adresse?: string;
   bransje?: string;
+  opprettet: Date;
+};
+
+/** Webhook-konfigurasjon */
+export type WebhookHendelse =
+  | "bilag.opprettet"
+  | "bilag.oppdatert"
+  | "bilag.bokfort"
+  | "bilag.avvist"
+  | "bilag.kreditert"
+  | "klient.opprettet"
+  | "klient.oppdatert";
+
+export type WebhookKonfig = {
+  url: string;
+  hendelser: WebhookHendelse[];
+  aktiv: boolean;
+  opprettet: Date;
+  userId: string;
+  /** SHA-256 HMAC-signeringsnøkkel (lagres hashet i Firestore) */
+  hashetSecret: string;
+};
+
+export type WebhookLogg = {
+  webhookId: string;
+  hendelse: WebhookHendelse;
+  statusKode: number;
+  forsøk: number;
+  url: string;
+  tidspunkt: Date;
+  ok: boolean;
+};
+
+/** Motpart — kunde eller leverandør (Bokfl. + SAF-T krav) */
+export type Motpart = {
+  /** "kunde" (debitorer) eller "leverandor" (kreditorer) */
+  type: "kunde" | "leverandor";
+  navn: string;
+  orgnr?: string;           // 9 siffer, valgfritt for privatpersoner
+  kontaktperson?: string;
+  epost?: string;
+  telefon?: string;
+  adresse?: string;
+  klientId: string;         // Hvilken regnskapsklient motparten tilhører
   opprettet: Date;
 };
 
@@ -101,12 +160,21 @@ export type Bilag = {
   beskrivelse: string;
   belop: number;        // beløp i NOK
   klientId: string;
-  status: "ubehandlet" | "foreslått" | "bokført" | "avvist";
+  /** Bokfl. § 13: 5 år oppbevaringsplikt. "arkivert" settes av scheduled function etter utløp. */
+  status: "ubehandlet" | "foreslått" | "bokført" | "avvist" | "kreditert" | "arkivert";
   kategori?: string;
   leverandor?: string;
   vedleggUrl?: string;  // Firebase Storage URL for kvittering/faktura
   posteringer: Postering[];
   aiForslag?: AiForslag;
+  /** Motpart-ID (kunde eller leverandør) koblet til dette bilaget */
+  motpartId?: string;
+  /** ID til korrigeringsbilag som reverserer dette bilaget */
+  kreditertAvId?: string;
+  /** ID til originalbilag som dette bilaget reverserer */
+  korrigererBilagId?: string;
+  /** ISO-dato for når bilaget ble arkivert (etter 5 år iht. Bokfl. § 13) */
+  arkivertDato?: string;
 };
 
 /** Postering (debet/kredit-linje i et bilag) */

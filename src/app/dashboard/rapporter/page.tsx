@@ -23,6 +23,10 @@ import {
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
 import { useRapporter } from "@/hooks/use-rapporter";
+import { useAktivKlient } from "@/hooks/use-aktiv-klient";
+import { useMotparter } from "@/hooks/use-motparter";
+import { lastNedSaftXml, saftMetadata } from "@/lib/saft-eksport";
+import { eksporterResultatCsv } from "@/lib/eksport";
 
 type Fane = "resultat" | "balanse" | "mva" | "saft";
 
@@ -56,9 +60,13 @@ function genererPerioder(bilagDatoer: string[]) {
 
 export default function RapporterPage() {
   const { user } = useAuth();
+  const { aktivKlient, aktivKlientId } = useAktivKlient();
   const { loading, bilag, resultatForPeriode, balanse, mvaTerminer } = useRapporter(
-    user?.uid ?? null
+    user?.uid ?? null,
+    aktivKlientId
   );
+  const { motparter } = useMotparter(user?.uid ?? null, aktivKlientId);
+  const [genererSaft, setGenererSaft] = useState(false);
   const periodeAlternativer = useMemo(
     () => genererPerioder(bilag.map((b) => b.dato)),
     [bilag]
@@ -83,10 +91,15 @@ export default function RapporterPage() {
               Resultatregnskap, balanse, MVA-rapport og SAF-T-eksport.
             </p>
           </div>
-          <Button variant="outline" disabled>
-            <Download className="mr-2 h-4 w-4" />
-            Eksporter
-          </Button>
+          {aktivFane === "resultat" && !ingenData && (
+            <Button
+              variant="outline"
+              onClick={() => eksporterResultatCsv(resultat, valgtPeriode)}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Eksporter CSV
+            </Button>
+          )}
         </div>
       </SlideIn>
 
@@ -383,56 +396,89 @@ export default function RapporterPage() {
       )}
 
       {/* SAF-T */}
-      {!loading && aktivFane === "saft" && (
-        <SlideIn direction="up">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <FileBarChart className="h-5 w-5 text-primary" />
-                <CardTitle className="text-base">SAF-T-eksport</CardTitle>
-              </div>
-              <CardDescription>
-                Standard Audit File for Tax — norsk format for myndighetskrav og revisjon.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-4 flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Funksjon under utvikling</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    SAF-T-eksport vil være tilgjengelig i neste versjon. Filen vil inneholde
-                    alle transaksjoner i henhold til Skatteetatens krav til SAF-T Financial.
-                  </p>
+      {!loading && aktivFane === "saft" && (() => {
+        const meta = saftMetadata(bilag);
+        const kanEksportere = meta.antallBilag > 0 && aktivKlient !== null;
+        return (
+          <SlideIn direction="up">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <FileBarChart className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base">SAF-T Financial 1.30</CardTitle>
                 </div>
-              </div>
+                <CardDescription>
+                  Standard Audit File for Tax — norsk format for myndighetskrav og revisjon.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!aktivKlient && (
+                  <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-4 flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+                    <p className="text-sm">Velg en klient i sidepanelet for å generere SAF-T.</p>
+                  </div>
+                )}
 
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium">Hva inkluderes i SAF-T-filen</h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
+                <div className="grid gap-3 sm:grid-cols-3">
                   {[
-                    "Kontoplan (NS 4102)",
-                    "Kunder og leverandører",
-                    "Alle bilag og posteringer",
-                    "MVA-transaksjoner og koder",
-                    "Åpningsbalanse og periodesaldi",
-                  ].map((punkt) => (
-                    <li key={punkt} className="flex items-center gap-2">
-                      <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50" />
-                      {punkt}
-                    </li>
+                    { label: "Bokførte bilag", value: meta.antallBilag },
+                    { label: "Posteringslinjer", value: meta.antallPosteringer },
+                    { label: "Klient", value: aktivKlient?.navn ?? "—" },
+                  ].map((s) => (
+                    <div key={s.label} className="rounded-lg border border-border/50 p-3">
+                      <p className="text-xs text-muted-foreground">{s.label}</p>
+                      <p className="text-sm font-semibold mt-0.5">{s.value}</p>
+                    </div>
                   ))}
-                </ul>
-              </div>
+                </div>
 
-              <Button disabled>
-                <Download className="mr-2 h-4 w-4" />
-                Generer SAF-T XML (kommer snart)
-              </Button>
-            </CardContent>
-          </Card>
-        </SlideIn>
-      )}
+                {meta.periodeStart && (
+                  <p className="text-xs text-muted-foreground">
+                    Periode: {meta.periodeStart} → {meta.periodeSlutt}
+                  </p>
+                )}
+
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium">Innhold i SAF-T-filen</h3>
+                  <ul className="space-y-1.5 text-sm text-muted-foreground">
+                    {[
+                      "Kontoplan med SAF-T-kontoklasser (NS 4102)",
+                      "MVA-tabell med alle norske koder",
+                      "Alle bokførte bilag og posteringslinjer",
+                      "MVA-informasjon per posteringslinje",
+                      "Selskaps- og periodeheader",
+                    ].map((punkt) => (
+                      <li key={punkt} className="flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                        {punkt}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <Button
+                  disabled={!kanEksportere || genererSaft}
+                  onClick={async () => {
+                    if (!aktivKlient) return;
+                    setGenererSaft(true);
+                    try {
+                      lastNedSaftXml({ bilag, klient: aktivKlient, motparter });
+                    } finally {
+                      setGenererSaft(false);
+                    }
+                  }}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  {genererSaft ? "Genererer…" : "Last ned SAF-T XML"}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Filnavn: SAF-T_Financial_{aktivKlient?.orgnr ?? "orgnr"}_{new Date().toISOString().slice(0,10).replace(/-/g,"")}_001.xml
+                </p>
+              </CardContent>
+            </Card>
+          </SlideIn>
+        );
+      })()}
     </div>
   );
 }

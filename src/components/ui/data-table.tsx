@@ -25,6 +25,8 @@ type DataTableProps<T> = {
   columns: ColumnDef<T>[];
   searchable?: boolean;
   searchKey?: keyof T;
+  searchKeys?: (keyof T)[];
+  searchPlaceholder?: string;
   pageSize?: number;
 };
 
@@ -33,6 +35,8 @@ export function DataTable<T extends Record<string, unknown>>({
   columns,
   searchable = false,
   searchKey,
+  searchKeys,
+  searchPlaceholder = "Søk...",
   pageSize = 10,
 }: DataTableProps<T>) {
   const [search, setSearch] = useState("");
@@ -42,13 +46,14 @@ export function DataTable<T extends Record<string, unknown>>({
 
   // Filtrering
   const filtered = useMemo(() => {
-    if (!searchable || !searchKey || !search) return data;
+    if (!searchable || !search) return data;
     const term = search.toLowerCase();
-    return data.filter((row) => {
-      const val = row[searchKey];
-      return String(val).toLowerCase().includes(term);
-    });
-  }, [data, search, searchable, searchKey]);
+    const keys = searchKeys ?? (searchKey ? [searchKey] : []);
+    if (keys.length === 0) return data;
+    return data.filter((row) =>
+      keys.some((k) => String(row[k] ?? "").toLowerCase().includes(term))
+    );
+  }, [data, search, searchable, searchKey, searchKeys]);
 
   // Sortering
   const sorted = useMemo(() => {
@@ -84,11 +89,11 @@ export function DataTable<T extends Record<string, unknown>>({
   return (
     <div className="space-y-4">
       {/* Søkefelt */}
-      {searchable && searchKey && (
+      {searchable && (searchKey || (searchKeys && searchKeys.length > 0)) && (
         <div className="relative max-w-sm">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Søk..."
+            placeholder={searchPlaceholder}
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);

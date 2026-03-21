@@ -21,6 +21,20 @@ export function fail(res: Response, message: string, status = 400) {
 // Typer for rute-handlers
 // ============================================================
 
+/** Tilgjengelige API-scopes */
+export const API_SCOPES = [
+  "bilag:read",
+  "bilag:write",
+  "klienter:read",
+  "klienter:write",
+  "rapporter:read",
+  "saft:export",
+  "ai:chat",
+  "admin",
+] as const;
+
+export type ApiScope = typeof API_SCOPES[number];
+
 /** Kontekst som sendes til alle handlers */
 export type RouteContext = {
   req: Request;
@@ -30,6 +44,8 @@ export type RouteContext = {
 /** Kontekst for autentiserte handlers */
 export type AuthenticatedContext = RouteContext & {
   user: DecodedIdToken;
+  /** Scopes fra API-nøkkel (undefined = autentisert med Firebase token = full tilgang) */
+  apiKeyScopes?: ApiScope[];
 };
 
 /** Kontekst for validerte handlers */
@@ -41,7 +57,7 @@ export type ValidatedContext<T> = AuthenticatedContext & {
 type PublicHandler = (ctx: RouteContext) => Promise<void> | void;
 
 /** Handler med autentisert bruker */
-type AuthHandler = (ctx: AuthenticatedContext) => Promise<void> | void;
+export type AuthHandler = (ctx: AuthenticatedContext) => Promise<void> | void;
 
 /** Handler med autentisering og validert body */
 type ValidatedHandler<T> = (ctx: ValidatedContext<T>) => Promise<void> | void;
@@ -100,6 +116,25 @@ export function withValidation<T>(
       return;
     }
     await handler({ req, res, user, data: parsed.data });
+  });
+}
+
+/**
+ * Som withValidation, men godkjenner både Firebase ID-token og API-nøkkel.
+ * Brukes for v1-endepunkter som skal nås via x-api-key.
+ */
+export function withApiKeyOrAuthValidation<T>(
+  schema: ZodSchema<T>,
+  handler: ValidatedHandler<T>
+): PublicHandler {
+  return withApiKeyOrAuth(async ({ req, res, user, apiKeyScopes }) => {
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      const messages = parsed.error.errors.map((e: z.ZodIssue) => e.message).join(", ");
+      fail(res, messages);
+      return;
+    }
+    await handler({ req, res, user, apiKeyScopes, data: parsed.data });
   });
 }
 
@@ -167,7 +202,8 @@ export function withApiKeyOrAuth(handler: AuthHandler): PublicHandler {
 
         // Lag en pseudo-DecodedIdToken med eierens UID
         const user = { uid: keyData.userId } as DecodedIdToken;
-        await handler({ req, res, user });
+        const apiKeyScopes = (keyData.scopes ?? []) as ApiScope[];
+        await handler({ req, res, user, apiKeyScopes });
         return;
       } catch {
         fail(res, "Feil ved API-nøkkel-verifisering", 500);
@@ -176,6 +212,29 @@ export function withApiKeyOrAuth(handler: AuthHandler): PublicHandler {
     }
 
     fail(res, "Ikke autentisert — send Bearer-token eller x-api-key", 401);
+  };
+}
+
+/**
+ * Wrapper som krever et spesifikt scope.
+ * Brukes rundt withApiKeyOrAuth-handlers for å begrense tilgang.
+ * Hvis autentisert via Firebase ID-token (apiKeyScopes === undefined) gis full tilgang.
+ *
+ * Eksempel:
+ *   const listBilag = requireScope("bilag:read", withApiKeyOrAuth(async ({ user, res }) => { ... }));
+ */
+export function requireScope(scope: ApiScope, handler: PublicHandler): PublicHandler {
+  return async ({ req, res }) => {
+    // Vi henter scopes fra req etter at withApiKeyOrAuth har kjørt
+    // ved å pakke handleren slik at scopes sjekkes inni
+    await withApiKeyOrAuth(async (ctx) => {
+      // undefined scopes = Firebase-token = full tilgang
+      if (ctx.apiKeyScopes !== undefined && !ctx.apiKeyScopes.includes(scope)) {
+        fail(res, `Mangler scope: ${scope}`, 403);
+        return;
+      }
+      await (handler as AuthHandler)(ctx);
+    })({ req, res });
   };
 }
 

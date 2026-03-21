@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import {
   Upload,
   Receipt,
@@ -22,11 +24,19 @@ import {
   AlertCircle,
   Eye,
   ExternalLink,
+  RotateCcw,
+  Archive,
+  Download,
+  X,
+  PenLine,
 } from "lucide-react";
+import { eksporterBilagCsv, eksporterPosteringerCsv } from "@/lib/eksport";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
 import { useBilag, type BilagMedId } from "@/hooks/use-bilag";
 import { useBilagUpload } from "@/hooks/use-bilag-upload";
+import { useMotparter } from "@/hooks/use-motparter";
+import { useAktivKlient } from "@/hooks/use-aktiv-klient";
 import type { Bilag } from "@/types";
 
 type BilagRow = {
@@ -45,6 +55,8 @@ const statusBadge: Record<Bilag["status"], { label: string; variant: "default" |
   foreslått: { label: "Foreslått", variant: "secondary" },
   ubehandlet: { label: "Ubehandlet", variant: "outline" },
   avvist: { label: "Avvist", variant: "destructive" },
+  kreditert: { label: "Kreditert", variant: "outline" },
+  arkivert: { label: "Arkivert", variant: "secondary" },
 };
 
 const statusIkon: Record<Bilag["status"], React.ElementType> = {
@@ -52,6 +64,8 @@ const statusIkon: Record<Bilag["status"], React.ElementType> = {
   foreslått: Bot,
   ubehandlet: Clock,
   avvist: XCircle,
+  kreditert: RotateCcw,
+  arkivert: Archive,
 };
 
 function formatNOK(value: number) {
@@ -65,16 +79,36 @@ function formatNOK(value: number) {
 
 export default function BilagPage() {
   const { user } = useAuth();
-  const { bilag, loading, godkjennBilag, avvisBilag } = useBilag(user?.uid ?? null);
-  const { uploadFlere, lasterOpp, fremdrift } = useBilagUpload(user?.uid ?? null);
+  const { aktivKlientId } = useAktivKlient();
+  const { bilag, loading, deleteBilag, bokforBilag, godkjennBilag, avvisBilag, krediterBilag } = useBilag(user?.uid ?? null, aktivKlientId);
+  const { motparter } = useMotparter(user?.uid ?? null);
+  const { uploadFlere, lasterOpp, fremdrift } = useBilagUpload(user?.uid ?? null, aktivKlientId);
   const [dragOver, setDragOver] = useState(false);
-  const [selectedBilag, setSelectedBilag] = useState<BilagMedId | null>(null);
+  const [selectedBilagId, setSelectedBilagId] = useState<string | null>(null);
+  // Alltid avlest fra live bilag-array så detaljer er oppdaterte (f.eks. etter AI-analyse)
+  const selectedBilag = selectedBilagId ? (bilag.find((b) => b.id === selectedBilagId) ?? null) : null;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const antallUbehandlet = bilag.filter((b) => b.status === "ubehandlet").length;
   const antallForeslått = bilag.filter((b) => b.status === "foreslått").length;
 
-  const tableData: BilagRow[] = bilag.map((b) => ({
+  // ── Filtrering ──────────────────────────────────────────────────────────────
+  const [filterStatus, setFilterStatus] = useState<Bilag["status"] | "alle">("alle");
+  const [filterFra, setFilterFra] = useState("");
+  const [filterTil, setFilterTil] = useState("");
+
+  const filtrerteBilag = useMemo(() => {
+    return bilag.filter((b) => {
+      if (filterStatus !== "alle" && b.status !== filterStatus) return false;
+      if (filterFra && b.dato < filterFra) return false;
+      if (filterTil && b.dato > filterTil) return false;
+      return true;
+    });
+  }, [bilag, filterStatus, filterFra, filterTil]);
+
+  const harAktiveFiltre = filterStatus !== "alle" || filterFra !== "" || filterTil !== "";
+
+  const tableData: BilagRow[] = filtrerteBilag.map((b) => ({
     id: b.id,
     bilagsnr: b.bilagsnr,
     dato: b.dato,
@@ -140,10 +174,18 @@ export default function BilagPage() {
               Administrer kvitteringer og fakturaer. AI foreslår bokføring automatisk.
             </p>
           </div>
-          <Button onClick={() => fileInputRef.current?.click()} disabled={lasterOpp}>
-            <Upload className="mr-2 h-4 w-4" />
-            {lasterOpp ? `Laster opp… ${fremdrift}%` : "Last opp bilag"}
-          </Button>
+          <div className="flex gap-2">
+            <Link href="/dashboard/bilag/ny">
+              <Button variant="outline">
+                <PenLine className="mr-2 h-4 w-4" />
+                Nytt bilag
+              </Button>
+            </Link>
+            <Button onClick={() => fileInputRef.current?.click()} disabled={lasterOpp}>
+              <Upload className="mr-2 h-4 w-4" />
+              {lasterOpp ? `Laster opp… ${fremdrift}%` : "Last opp bilag"}
+            </Button>
+          </div>
         </div>
       </SlideIn>
 
@@ -244,7 +286,11 @@ export default function BilagPage() {
                   Bilag #{selectedBilag.bilagsnr} — {selectedBilag.beskrivelse}
                 </CardTitle>
                 <CardDescription>
-                  {selectedBilag.leverandor} · {selectedBilag.dato} · {formatNOK(selectedBilag.belop)}
+                  {selectedBilag.motpartId
+                    ? motparter.find((m) => m.id === selectedBilag.motpartId)?.navn ?? selectedBilag.leverandor
+                    : selectedBilag.leverandor
+                  }
+                  {" · "}{selectedBilag.dato} · {formatNOK(selectedBilag.belop)}
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
@@ -258,7 +304,7 @@ export default function BilagPage() {
                     <ExternalLink className="h-4 w-4" />
                   </a>
                 )}
-                <Button variant="ghost" size="sm" onClick={() => setSelectedBilag(null)}>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedBilagId(null)}>
                   Lukk
                 </Button>
               </div>
@@ -304,7 +350,7 @@ export default function BilagPage() {
                     size="sm"
                     onClick={async () => {
                       await godkjennBilag(selectedBilag.id);
-                      setSelectedBilag(null);
+                      setSelectedBilagId(null);
                     }}
                   >
                     <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -316,7 +362,7 @@ export default function BilagPage() {
                     className="text-destructive"
                     onClick={async () => {
                       await avvisBilag(selectedBilag.id);
-                      setSelectedBilag(null);
+                      setSelectedBilagId(null);
                     }}
                   >
                     Avvis
@@ -326,13 +372,66 @@ export default function BilagPage() {
             )}
             {(!selectedBilag.aiForslag || selectedBilag.status !== "foreslått") && (
               <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {selectedBilag.status === "ubehandlet"
-                    ? "AI-analyse pågår. Kom tilbake om litt."
-                    : selectedBilag.status === "bokført"
-                    ? "Dette bilaget er bokført."
-                    : "Dette bilaget er avvist."}
-                </p>
+                {/* Manuelt utkast — kan bokføres eller slettes */}
+                {selectedBilag.status === "ubehandlet" && !selectedBilag.aiForslag && selectedBilag.posteringer.length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Utkast — klart til bokføring.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          await bokforBilag(selectedBilag.id);
+                          setSelectedBilagId(null);
+                        }}
+                      >
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        Bokfør
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={async () => {
+                          await deleteBilag(selectedBilag.id);
+                          setSelectedBilagId(null);
+                        }}
+                      >
+                        Slett utkast
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {selectedBilag.status === "ubehandlet"
+                      ? "AI-analyse pågår. Kom tilbake om litt."
+                      : selectedBilag.status === "bokført"
+                      ? "Dette bilaget er bokført."
+                      : selectedBilag.status === "kreditert"
+                      ? "Dette bilaget er kreditert og reversert."
+                      : "Dette bilaget er avvist."}
+                  </p>
+                )}
+                {selectedBilag.status === "bokført" && !selectedBilag.kreditertAvId && (
+                  <div className="mt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive border-destructive/30 hover:bg-destructive/5"
+                      onClick={async () => {
+                        await krediterBilag(selectedBilag.id);
+                        setSelectedBilagId(null);
+                      }}
+                    >
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      Kreditér bilag
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Oppretter et korrigeringsbilag med reverserte posteringer (Bokfl. § 9).
+                    </p>
+                  </div>
+                )}
                 {selectedBilag.posteringer.length > 0 && (
                   <div className="mt-3 rounded-lg border border-border/50 overflow-hidden">
                     <table className="w-full text-sm">
@@ -358,6 +457,102 @@ export default function BilagPage() {
               </CardContent>
             )}
           </Card>
+        </SlideIn>
+      )}
+
+      {/* Filter-panel */}
+      {!loading && bilag.length > 0 && (
+        <SlideIn direction="up" delay={0.17}>
+          <Card className="border-border/40">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex flex-wrap gap-3 items-end">
+                {/* Status-filter */}
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Status</p>
+                  <div className="flex flex-wrap gap-1">
+                    {(["alle", "ubehandlet", "foreslått", "bokført", "avvist", "kreditert", "arkivert"] as const).map((s) => (
+                      <Button
+                        key={s}
+                        size="sm"
+                        variant={filterStatus === s ? "default" : "outline"}
+                        className="h-7 text-xs"
+                        onClick={() => setFilterStatus(s)}
+                      >
+                        {s === "alle" ? "Alle" : statusBadge[s as Bilag["status"]]?.label ?? s}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Dato-filter */}
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Dato fra</p>
+                  <Input
+                    type="date"
+                    value={filterFra}
+                    onChange={(e) => setFilterFra(e.target.value)}
+                    className="h-7 text-xs w-36"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Dato til</p>
+                  <Input
+                    type="date"
+                    value={filterTil}
+                    onChange={(e) => setFilterTil(e.target.value)}
+                    className="h-7 text-xs w-36"
+                  />
+                </div>
+
+                {/* Tilbakestill */}
+                {harAktiveFiltre && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs text-muted-foreground"
+                    onClick={() => {
+                      setFilterStatus("alle");
+                      setFilterFra("");
+                      setFilterTil("");
+                    }}
+                  >
+                    <X className="mr-1 h-3 w-3" />
+                    Nullstill filter
+                  </Button>
+                )}
+
+                {harAktiveFiltre && (
+                  <p className="text-xs text-muted-foreground self-end pb-0.5">
+                    Viser {filtrerteBilag.length} av {bilag.length} bilag
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </SlideIn>
+      )}
+
+      {/* Eksport */}
+      {!loading && bilag.length > 0 && (
+        <SlideIn direction="up" delay={0.18}>
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => eksporterBilagCsv(filtrerteBilag, motparter)}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Eksporter bilagliste (CSV)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => eksporterPosteringerCsv(filtrerteBilag, motparter)}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Posteringsliste (CSV)
+            </Button>
+          </div>
         </SlideIn>
       )}
 
@@ -393,7 +588,7 @@ export default function BilagPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setSelectedBilag(b)}
+                      onClick={() => setSelectedBilagId(b.id)}
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
@@ -402,7 +597,8 @@ export default function BilagPage() {
               },
             ]}
             searchable
-            searchKey="beskrivelse"
+            searchKeys={["beskrivelse", "leverandor", "bilagsnr", "kategori"]}
+            searchPlaceholder="Søk på beskrivelse, leverandør, bilagsnr…"
             pageSize={8}
           />
         )}

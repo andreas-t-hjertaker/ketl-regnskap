@@ -16,14 +16,19 @@ export type AuditHandling =
   | "klient_opprettet"
   | "klient_oppdatert"
   | "klient_slettet"
+  | "motpart_opprettet"
+  | "motpart_oppdatert"
+  | "motpart_slettet"
+  | "bilag_kreditert"
+  | "bilag_arkivert"
   | "fil_lastet_opp"
   | "fil_slettet";
 
 export type AuditEntry = {
   handling: AuditHandling;
-  entitetType: "bilag" | "klient" | "fil";
+  entitetType: "bilag" | "klient" | "motpart" | "fil";
   entitetId: string;
-  utfortAv: "bruker" | "ai";
+  utfortAv: "bruker" | "ai" | "system";
   uid: string;
   detaljer?: Record<string, unknown>;
   tidspunkt: Date;
@@ -39,7 +44,7 @@ export async function loggHandling(
   entitetType: AuditEntry["entitetType"],
   entitetId: string,
   detaljer?: Record<string, unknown>,
-  utfortAv: AuditEntry["utfortAv"] = "bruker"
+  utfortAv: "bruker" | "ai" | "system" = "bruker"
 ): Promise<void> {
   try {
     await addDoc(collection(db, `users/${uid}/audit_log`), {

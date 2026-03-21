@@ -4,10 +4,10 @@ import { useMemo, useCallback } from "react";
 import { useBilag } from "@/hooks/use-bilag";
 import type { Postering } from "@/types";
 
-/** Alle posteringer fra bokførte bilag */
+/** Alle posteringer fra bokførte og krediterte bilag (begge inngår i regnskapet) */
 function hentPosteringer(bilag: ReturnType<typeof useBilag>["bilag"]) {
   return bilag
-    .filter((b) => b.status === "bokført")
+    .filter((b) => b.status === "bokført" || b.status === "kreditert")
     .flatMap((b) => b.posteringer.map((p) => ({ ...p, dato: b.dato, bilagId: b.id })));
 }
 
@@ -134,29 +134,20 @@ export function useRapporter(uid: string | null, klientId?: string | null) {
       const [år, mnd] = p.dato.split("-").map(Number);
       const terminNr = Math.ceil(mnd / 2);
       const terminKey = `${år}-T${terminNr}`;
-      const label = (() => {
-        const måneder = ["jan", "feb", "mar", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "des"];
-        const startMnd = (terminNr - 1) * 2;
-        return `Termin ${terminNr} (${måneder[startMnd]}–${måneder[startMnd + 1]}) ${år}`;
-      })();
 
       if (!terminMap.has(terminKey)) {
         terminMap.set(terminKey, { utgående: 0, inngående: 0 });
       }
       const termin = terminMap.get(terminKey)!;
 
-      // Utgående MVA: kontoer 274x
+      // Utgående MVA: kontoer 274x — netto kredit (kredit − debet) for å håndtere korrigeringer
       if (p.kontonr.startsWith("274")) {
-        termin.utgående += p.kredit ?? 0;
+        termin.utgående += (p.kredit ?? 0) - (p.debet ?? 0);
       }
-      // Inngående MVA: kontoer 271x
+      // Inngående MVA: kontoer 271x — netto debet (debet − kredit) for å håndtere korrigeringer
       if (p.kontonr.startsWith("271")) {
-        termin.inngående += p.debet ?? 0;
+        termin.inngående += (p.debet ?? 0) - (p.kredit ?? 0);
       }
-      // Attach label to key
-      terminMap.set(terminKey, { ...termin, ...(terminMap.get(terminKey) ?? {}) });
-
-      void label; // bruk label for å unngå lint-advarsel
     }
 
     // Bygg array med labels

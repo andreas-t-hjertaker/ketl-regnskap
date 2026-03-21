@@ -16,6 +16,20 @@ service cloud.firestore {
       return erAutentisert() && request.auth.token.admin == true;
     }
 
+    // ─── Webhooks ────────────────────────────────────────────────────────────────
+    match /webhooks/{webhookId} {
+      allow read: if erAutentisert() && resource.data.userId == request.auth.uid;
+      allow create: if erAutentisert() && request.resource.data.userId == request.auth.uid
+        && request.resource.data.url is string
+        && request.resource.data.hendelser is list;
+      allow update, delete: if erAutentisert() && resource.data.userId == request.auth.uid;
+    }
+
+    match /webhook_logg/{loggId} {
+      allow read: if erAutentisert() && resource.data.userId == request.auth.uid;
+      allow write: if erAdmin(); // Kun Cloud Functions skriver
+    }
+
     // ─── Abonnementer ────────────────────────────────────────────────────────────
     match /subscriptions/{uid} {
       allow read: if erEier(uid);
@@ -61,7 +75,12 @@ service cloud.firestore {
           !request.resource.data.keys().hasAny(['klientId']) ||
           request.resource.data.klientId is string
         );
-        allow delete: if erEier(uid);
+        // Bokføringsloven § 9 + § 13: bokførte og krediterte bilag kan ikke slettes
+        // i oppbevaringsperioden (5 år). Kun "ubehandlet", "foreslått", "avvist" og
+        // "arkivert" (utløpt oppbevaringsplikt, merket av Cloud Function) kan slettes.
+        // "foreslått" er ikke bokført — AI-forslag ennå ikke godkjent av bruker.
+        allow delete: if erEier(uid) &&
+          resource.data.status in ["ubehandlet", "foreslått", "avvist", "arkivert"];
       }
 
       // Revisjonslogg — kun lesing for bruker, Cloud Functions kan skrive
@@ -74,6 +93,22 @@ service cloud.firestore {
       // Kontoplan (bruker-tilpasset)
       match /kontoplan/{kontoId} {
         allow read, write: if erEier(uid);
+      }
+
+      // Bilagsnummer-tellere — atomisk inkrement via transaksjon
+      match /counters/{counterId} {
+        allow read, write: if erEier(uid);
+      }
+
+      // Motparter (kunder og leverandører) — SAF-T-krav
+      match /motparter/{motpartId} {
+        allow read: if erEier(uid);
+        allow create: if erEier(uid) &&
+          request.resource.data.type in ["kunde", "leverandor"] &&
+          request.resource.data.navn is string &&
+          request.resource.data.klientId is string;
+        allow update: if erEier(uid);
+        allow delete: if erEier(uid);
       }
     }
   }
