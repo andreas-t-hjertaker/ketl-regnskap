@@ -512,10 +512,9 @@ const deleteAdminUser = withAdmin(async ({ req, res }) => {
     return;
   }
 
-  // Slett Firestore-data
+  // Slett toppnivå-dokumenter
   const batch = db.batch();
-  const subRef = db.collection("subscriptions").doc(uid);
-  batch.delete(subRef);
+  batch.delete(db.collection("subscriptions").doc(uid));
 
   const keysSnap = await db.collection("apiKeys").where("userId", "==", uid).get();
   keysSnap.docs.forEach((d) => batch.delete(d.ref));
@@ -523,7 +522,13 @@ const deleteAdminUser = withAdmin(async ({ req, res }) => {
   const notesSnap = await db.collection("notes").where("userId", "==", uid).get();
   notesSnap.docs.forEach((d) => batch.delete(d.ref));
 
+  const webhooksSnap = await db.collection("webhooks").where("userId", "==", uid).get();
+  webhooksSnap.docs.forEach((d) => batch.delete(d.ref));
+
   await batch.commit();
+
+  // Slett brukerens Firestore-data rekursivt (bilag, klienter, motparter, osv.)
+  await db.recursiveDelete(db.collection("users").doc(uid));
 
   // Slett Firebase Auth-bruker
   await admin.auth().deleteUser(uid);
