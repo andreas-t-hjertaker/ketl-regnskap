@@ -101,15 +101,21 @@ export function useKlienter(uid: string | null) {
     async (id: string): Promise<void> => {
       if (!uid || !path) return;
 
-      // Sjekk om klienten har bilag
+      // Sjekk om klienten har bilag eller motparter
       try {
         const bilag = await getCollection(`users/${uid}/bilag`, where("klientId", "==", id));
         if (bilag.length > 0) {
           showToast.error("Kan ikke slette klient med tilknyttede bilag. Slett bilagene først.");
           return;
         }
+        const motparter = await getCollection(`users/${uid}/motparter`, where("klientId", "==", id));
+        if (motparter.length > 0) {
+          showToast.error("Kan ikke slette klient med tilknyttede motparter. Slett motpartene først.");
+          return;
+        }
       } catch {
-        // Fortsett selv om sjekken feiler
+        showToast.error("Klarte ikke verifisere om klienten kan slettes.");
+        return;
       }
 
       try {
