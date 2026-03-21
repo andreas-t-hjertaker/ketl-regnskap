@@ -1486,6 +1486,29 @@ export const arkiverGamleBilag = onSchedule(
  * Hvis `status`-feltet endres, leveres en webhook-hendelse til alle
  * aktive webhooks som er konfigurert for den aktuelle hendelsen.
  */
+export const bilagOpprettetWebhookTrigger = onDocumentCreated(
+  {
+    document: "users/{uid}/bilag/{bilagId}",
+    region: "europe-west1",
+  },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const data = snap.data();
+    const uid = event.params.uid;
+    const bilagId = event.params.bilagId;
+    await fireWebhooks(uid, "bilag.opprettet", {
+      bilagId,
+      bilagsnr: data.bilagsnr,
+      dato: data.dato,
+      beskrivelse: data.beskrivelse,
+      belop: data.belop,
+      status: data.status,
+      klientId: data.klientId,
+    });
+  }
+);
+
 export const bilagWebhookTrigger = onDocumentUpdated(
   {
     document: "users/{uid}/bilag/{bilagId}",
