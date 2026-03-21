@@ -186,12 +186,12 @@ export default function RevisjonsloggPage() {
                           <Badge variant={etikett.variant} className="text-xs py-0">
                             {etikett.label}
                           </Badge>
-                          {entry.detaljer?.bilagsnr && (
+                          {entry.detaljer?.bilagsnr != null && (
                             <span className="text-xs font-mono text-muted-foreground">
                               #{String(entry.detaljer.bilagsnr)}
                             </span>
                           )}
-                          {entry.detaljer?.beskrivelse && (
+                          {entry.detaljer?.beskrivelse != null && (
                             <span className="text-xs text-muted-foreground truncate max-w-[200px]">
                               {String(entry.detaljer.beskrivelse)}
                             </span>

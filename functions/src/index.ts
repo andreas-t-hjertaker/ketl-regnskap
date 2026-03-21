@@ -256,7 +256,8 @@ const handleWebhook = async ({ req, res }: RouteContext) => {
         .where("stripeCustomerId", "==", sub.customer as string)
         .limit(1).get();
       if (!customerSnap.empty) {
-        const periodEnd = new Date(sub.current_period_end * 1000);
+        const item = sub.items.data[0];
+        const periodEnd = item ? new Date(item.current_period_end * 1000) : null;
         await customerSnap.docs[0].ref.update({
           stripeSubscriptionId: sub.id,
           stripePriceId: sub.items.data[0]?.price.id ?? null,
