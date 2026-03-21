@@ -101,6 +101,11 @@ function OpprettKlientSkjema({ onLagret, onAvbryt }: { onLagret: () => void; onA
 
     if (id) {
       formRef.current?.reset();
+      setOrgnr("");
+      setNavn("");
+      setAdresse("");
+      setBransje("");
+      forrigeBrregOrgnr.current = "";
       onLagret();
     }
   }
