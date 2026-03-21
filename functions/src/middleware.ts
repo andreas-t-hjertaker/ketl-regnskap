@@ -119,6 +119,25 @@ export function withValidation<T>(
   });
 }
 
+/**
+ * Som withValidation, men godkjenner både Firebase ID-token og API-nøkkel.
+ * Brukes for v1-endepunkter som skal nås via x-api-key.
+ */
+export function withApiKeyOrAuthValidation<T>(
+  schema: ZodSchema<T>,
+  handler: ValidatedHandler<T>
+): PublicHandler {
+  return withApiKeyOrAuth(async ({ req, res, user, apiKeyScopes }) => {
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      const messages = parsed.error.errors.map((e: z.ZodIssue) => e.message).join(", ");
+      fail(res, messages);
+      return;
+    }
+    await handler({ req, res, user, apiKeyScopes, data: parsed.data });
+  });
+}
+
 // ============================================================
 // Admin-middleware
 // ============================================================

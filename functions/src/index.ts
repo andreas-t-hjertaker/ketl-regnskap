@@ -6,7 +6,7 @@ import * as crypto from "crypto";
 import Stripe from "stripe";
 import { z } from "zod";
 import { VertexAI, HarmCategory, HarmBlockThreshold } from "@google-cloud/vertexai";
-import { success, fail, withAuth, withAdmin, withValidation, rateLimit, type RouteContext } from "./middleware";
+import { success, fail, withAuth, withAdmin, withValidation, withApiKeyOrAuth, withApiKeyOrAuthValidation, rateLimit, type RouteContext } from "./middleware";
 import { OPENAPI_SPEC, genererDocsHtml } from "./openapi";
 
 admin.initializeApp();
@@ -639,13 +639,13 @@ const deleteAccount = withAuth(async ({ user, res }) => {
 // v1 — Klienter
 // ============================================================
 
-const v1ListKlienter = withAuth(async ({ user, res }) => {
+const v1ListKlienter = withApiKeyOrAuth(async ({ user, res }) => {
   const snap = await db.collection(`users/${user.uid}/klienter`)
     .orderBy("opprettet", "desc").get();
   success(res, snap.docs.map((d) => ({ id: d.id, ...d.data() })));
 });
 
-const v1CreateKlient = withValidation(klientSchema, async ({ user, data, res }) => {
+const v1CreateKlient = withApiKeyOrAuthValidation(klientSchema, async ({ user, data, res }) => {
   const ref = await db.collection(`users/${user.uid}/klienter`).add({
     ...data,
     opprettet: admin.firestore.FieldValue.serverTimestamp(),
@@ -655,7 +655,7 @@ const v1CreateKlient = withValidation(klientSchema, async ({ user, data, res }) 
   success(res, { id: ref.id, ...data }, 201);
 });
 
-const v1GetKlient = withAuth(async ({ user, req, res }) => {
+const v1GetKlient = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
   if (!id) return fail(res, "Mangler klient-ID", 400);
   const snap = await db.doc(`users/${user.uid}/klienter/${id}`).get();
@@ -663,7 +663,7 @@ const v1GetKlient = withAuth(async ({ user, req, res }) => {
   success(res, { id: snap.id, ...snap.data() });
 });
 
-const v1UpdateKlient = withValidation(klientSchema.partial(), async ({ user, req, data, res }) => {
+const v1UpdateKlient = withApiKeyOrAuthValidation(klientSchema.partial(), async ({ user, req, data, res }) => {
   const id = pathSegment(req.path, 2);
   if (!id) return fail(res, "Mangler klient-ID", 400);
   const ref = db.doc(`users/${user.uid}/klienter/${id}`);
@@ -673,7 +673,7 @@ const v1UpdateKlient = withValidation(klientSchema.partial(), async ({ user, req
   success(res, { id, ...snap.data(), ...data });
 });
 
-const v1DeleteKlient = withAuth(async ({ user, req, res }) => {
+const v1DeleteKlient = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
   if (!id) return fail(res, "Mangler klient-ID", 400);
   const bilagSnap = await db.collection(`users/${user.uid}/bilag`)
@@ -689,7 +689,7 @@ const v1DeleteKlient = withAuth(async ({ user, req, res }) => {
 // v1 — Bilag
 // ============================================================
 
-const v1ListBilag = withAuth(async ({ user, req, res }) => {
+const v1ListBilag = withApiKeyOrAuth(async ({ user, req, res }) => {
   const { klientId, status, limit: lim } = req.query as Record<string, string>;
   let q: FirebaseFirestore.Query = db.collection(`users/${user.uid}/bilag`);
   if (klientId) q = q.where("klientId", "==", klientId);
@@ -699,7 +699,7 @@ const v1ListBilag = withAuth(async ({ user, req, res }) => {
   success(res, snap.docs.map((d) => ({ id: d.id, ...d.data() })));
 });
 
-const v1CreateBilag = withValidation(bilagSchema, async ({ user, data, res }) => {
+const v1CreateBilag = withApiKeyOrAuthValidation(bilagSchema, async ({ user, data, res }) => {
   // Hent neste bilagsnummer via transaksjon
   const år = parseInt(data.dato.slice(0, 4), 10);
   const tellerRef = db.doc(`users/${user.uid}/counters/bilag_${år}`);
@@ -729,7 +729,7 @@ const v1CreateBilag = withValidation(bilagSchema, async ({ user, data, res }) =>
   success(res, { id: ref.id, bilagsnr, ...data, status: "bokført" }, 201);
 });
 
-const v1GetBilag = withAuth(async ({ user, req, res }) => {
+const v1GetBilag = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
   if (!id) return fail(res, "Mangler bilag-ID", 400);
   const snap = await db.doc(`users/${user.uid}/bilag/${id}`).get();
@@ -737,7 +737,7 @@ const v1GetBilag = withAuth(async ({ user, req, res }) => {
   success(res, { id: snap.id, ...snap.data() });
 });
 
-const v1GodkjennBilag = withAuth(async ({ user, req, res }) => {
+const v1GodkjennBilag = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
   if (!id) return fail(res, "Mangler bilag-ID", 400);
   const ref = db.doc(`users/${user.uid}/bilag/${id}`);
@@ -763,7 +763,7 @@ const v1GodkjennBilag = withAuth(async ({ user, req, res }) => {
   success(res, { id, status: "bokført" });
 });
 
-const v1AvvisBilag = withAuth(async ({ user, req, res }) => {
+const v1AvvisBilag = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
   if (!id) return fail(res, "Mangler bilag-ID", 400);
   const ref = db.doc(`users/${user.uid}/bilag/${id}`);
@@ -773,7 +773,7 @@ const v1AvvisBilag = withAuth(async ({ user, req, res }) => {
   success(res, { id, status: "avvist" });
 });
 
-const v1KrediterBilag = withAuth(async ({ user, req, res }) => {
+const v1KrediterBilag = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
   if (!id) return fail(res, "Mangler bilag-ID", 400);
   const ref = db.doc(`users/${user.uid}/bilag/${id}`);
@@ -825,7 +825,7 @@ const v1KrediterBilag = withAuth(async ({ user, req, res }) => {
 // v1 — Rapporter (server-side beregning)
 // ============================================================
 
-const v1Resultat = withAuth(async ({ user, req, res }) => {
+const v1Resultat = withApiKeyOrAuth(async ({ user, req, res }) => {
   const { periode, klientId } = req.query as Record<string, string>;
   let q: FirebaseFirestore.Query = db.collection(`users/${user.uid}/bilag`)
     .where("status", "in", ["bokført", "kreditert"]);
@@ -891,7 +891,7 @@ const motpartSchema = z.object({
   klientId: z.string().min(1),
 });
 
-const v1ListMotparter = withAuth(async ({ user, req, res }) => {
+const v1ListMotparter = withApiKeyOrAuth(async ({ user, req, res }) => {
   const { klientId, type } = req.query as Record<string, string>;
   let q: FirebaseFirestore.Query = db.collection(`users/${user.uid}/motparter`);
   if (klientId) q = q.where("klientId", "==", klientId);
@@ -901,7 +901,7 @@ const v1ListMotparter = withAuth(async ({ user, req, res }) => {
   success(res, snap.docs.map((d) => ({ id: d.id, ...d.data() })));
 });
 
-const v1CreateMotpart = withValidation(motpartSchema, async ({ user, data, res }) => {
+const v1CreateMotpart = withApiKeyOrAuthValidation(motpartSchema, async ({ user, data, res }) => {
   const ref = await db.collection(`users/${user.uid}/motparter`).add({
     ...data,
     opprettet: admin.firestore.FieldValue.serverTimestamp(),
@@ -909,7 +909,7 @@ const v1CreateMotpart = withValidation(motpartSchema, async ({ user, data, res }
   success(res, { id: ref.id, ...data }, 201);
 });
 
-const v1GetMotpart = withAuth(async ({ user, req, res }) => {
+const v1GetMotpart = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
   if (!id) return fail(res, "Mangler motpart-ID", 400);
   const snap = await db.doc(`users/${user.uid}/motparter/${id}`).get();
@@ -917,7 +917,7 @@ const v1GetMotpart = withAuth(async ({ user, req, res }) => {
   success(res, { id: snap.id, ...snap.data() });
 });
 
-const v1UpdateMotpart = withValidation(motpartSchema.partial(), async ({ user, req, data, res }) => {
+const v1UpdateMotpart = withApiKeyOrAuthValidation(motpartSchema.partial(), async ({ user, req, data, res }) => {
   const id = pathSegment(req.path, 2);
   if (!id) return fail(res, "Mangler motpart-ID", 400);
   const ref = db.doc(`users/${user.uid}/motparter/${id}`);
@@ -927,7 +927,7 @@ const v1UpdateMotpart = withValidation(motpartSchema.partial(), async ({ user, r
   success(res, { id, ...data });
 });
 
-const v1DeleteMotpart = withAuth(async ({ user, req, res }) => {
+const v1DeleteMotpart = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
   if (!id) return fail(res, "Mangler motpart-ID", 400);
   const ref = db.doc(`users/${user.uid}/motparter/${id}`);
