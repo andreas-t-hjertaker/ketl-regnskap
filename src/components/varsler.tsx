@@ -38,12 +38,14 @@ function nesteMvaFrister(): MvaFrist[] {
   const nå = new Date();
   const år = nå.getFullYear();
   const frister: MvaFrist[] = [
-    { termin: "T1", fristDato: new Date(år, 3, 10),     label: "Termin 1 (jan–feb)" },
-    { termin: "T2", fristDato: new Date(år, 5, 10),     label: "Termin 2 (mar–apr)" },
-    { termin: "T3", fristDato: new Date(år, 7, 10),     label: "Termin 3 (mai–jun)" },
-    { termin: "T4", fristDato: new Date(år, 9, 10),     label: "Termin 4 (jul–aug)" },
-    { termin: "T5", fristDato: new Date(år, 11, 10),    label: "Termin 5 (sep–okt)" },
-    { termin: "T6", fristDato: new Date(år + 1, 1, 10), label: "Termin 6 (nov–des)" },
+    // T6 for forrige års nov-des-periode (frist 10. feb inneværende år — relevant jan/feb)
+    { termin: "T6-forrige", fristDato: new Date(år, 1, 10),     label: "Termin 6 (nov–des forrige år)" },
+    { termin: "T1",         fristDato: new Date(år, 3, 10),     label: "Termin 1 (jan–feb)" },
+    { termin: "T2",         fristDato: new Date(år, 5, 10),     label: "Termin 2 (mar–apr)" },
+    { termin: "T3",         fristDato: new Date(år, 7, 10),     label: "Termin 3 (mai–jun)" },
+    { termin: "T4",         fristDato: new Date(år, 9, 10),     label: "Termin 4 (jul–aug)" },
+    { termin: "T5",         fristDato: new Date(år, 11, 10),    label: "Termin 5 (sep–okt)" },
+    { termin: "T6",         fristDato: new Date(år + 1, 1, 10), label: "Termin 6 (nov–des)" },
   ];
   // Returner frister som ikke er passert
   return frister.filter((f) => f.fristDato > nå);
