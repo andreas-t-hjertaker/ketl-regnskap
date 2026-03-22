@@ -175,6 +175,10 @@ export function useBilag(uid: string | null, klientId?: string | null) {
       if (!uid || !path) return;
       const b = bilag.find((x) => x.id === id);
       if (!b?.aiForslag) return;
+      if (b.status !== "foreslått") {
+        showToast.error("Kun foreslåtte bilag kan godkjennes.");
+        return;
+      }
       try {
         await updateDocument(path, id, {
           status: "bokført",
@@ -195,6 +199,11 @@ export function useBilag(uid: string | null, klientId?: string | null) {
   const avvisBilag = useCallback(
     async (id: string): Promise<void> => {
       if (!uid || !path) return;
+      const b = bilag.find((x) => x.id === id);
+      if (b && b.status !== "foreslått" && b.status !== "ubehandlet") {
+        showToast.error("Kun foreslåtte eller ubehandlede bilag kan avvises.");
+        return;
+      }
       try {
         await updateDocument(path, id, { status: "avvist" });
         await loggHandling(uid, "bilag_avvist", "bilag", id);
