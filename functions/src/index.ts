@@ -717,6 +717,12 @@ const v1ListBilag = withApiKeyOrAuth(async ({ user, req, res }) => {
 });
 
 const v1CreateBilag = withApiKeyOrAuthValidation(bilagSchema, async ({ user, data, res }) => {
+  // Valider at klientId tilhører brukeren
+  const klientSnap = await db.doc(`users/${user.uid}/klienter/${data.klientId}`).get();
+  if (!klientSnap.exists) {
+    return fail(res, "Klient ikke funnet", 404);
+  }
+
   // Hent neste bilagsnummer via transaksjon
   const år = parseInt(data.dato.slice(0, 4), 10);
   const tellerRef = db.doc(`users/${user.uid}/counters/bilag_${år}`);
@@ -919,6 +925,12 @@ const v1ListMotparter = withApiKeyOrAuth(async ({ user, req, res }) => {
 });
 
 const v1CreateMotpart = withApiKeyOrAuthValidation(motpartSchema, async ({ user, data, res }) => {
+  // Valider at klientId tilhører brukeren
+  const klientSnap = await db.doc(`users/${user.uid}/klienter/${data.klientId}`).get();
+  if (!klientSnap.exists) {
+    return fail(res, "Klient ikke funnet", 404);
+  }
+
   const ref = await db.collection(`users/${user.uid}/motparter`).add({
     ...data,
     opprettet: admin.firestore.FieldValue.serverTimestamp(),
