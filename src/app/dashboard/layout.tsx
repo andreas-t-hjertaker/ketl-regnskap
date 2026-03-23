@@ -20,6 +20,7 @@ import { OnboardingStepper } from "@/components/onboarding-stepper";
 import { PageTransition } from "@/components/motion";
 import { OfflineBanner } from "@/components/offline-banner";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -81,7 +82,9 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
           {/* Hovedinnhold */}
           <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-20 md:pb-6">
-            <PageTransition>{children}</PageTransition>
+            <ErrorBoundary>
+              <PageTransition>{children}</PageTransition>
+            </ErrorBoundary>
           </main>
         </div>
         <AiAssistant

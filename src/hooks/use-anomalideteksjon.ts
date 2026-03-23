@@ -144,6 +144,19 @@ export function useAnomalideteksjon(bilag: BilagMedId[]): Anomali[] {
         });
       }
 
+      // ─── Negativt beløp (ikke kreditering) ───────────────────────────────────
+      if (b.belop < 0 && b.status !== "kreditert") {
+        anomalier.push({
+          bilagId: b.id,
+          bilagsnr: b.bilagsnr,
+          type: "negativt_belop",
+          alvorlighet: "middels",
+          beskrivelse: `Negativt bilagsbeløp (${b.belop.toLocaleString("nb-NO")} NOK) uten kreditering — sjekk om dette er riktig bokføring.`,
+          dato: b.dato,
+          belop: b.belop,
+        });
+      }
+
       // ─── MVA-differanse > 1 kr ────────────────────────────────────────────────
       const mvaPost25 = b.posteringer
         .filter((p) => p.kontonr.startsWith("271"))
