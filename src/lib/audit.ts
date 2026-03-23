@@ -31,11 +31,14 @@ export type AuditHandling =
   | "ansatt_oppdatert"
   | "ansatt_deaktivert"
   | "lonnsutbetaling_registrert"
-  | "amelding_sendt";
+  | "amelding_sendt"
+  | "periode_låst"
+  | "periode_lukket"
+  | "periode_åpnet";
 
 export type AuditEntry = {
   handling: AuditHandling;
-  entitetType: "bilag" | "klient" | "motpart" | "fil" | "prosjekt" | "ansatt" | "lonnsutbetaling" | "amelding";
+  entitetType: "bilag" | "klient" | "motpart" | "fil" | "prosjekt" | "ansatt" | "lonnsutbetaling" | "amelding" | "periode";
   entitetId: string;
   utfortAv: "bruker" | "ai" | "system";
   uid: string;

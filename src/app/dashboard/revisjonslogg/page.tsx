@@ -54,6 +54,9 @@ const HANDLING_ETIKETT: Record<AuditHandling, { label: string; variant: "default
   ansatt_deaktivert:         { label: "Ansatt deaktivert", variant: "destructive" },
   lonnsutbetaling_registrert:{ label: "Lønnsutbetaling registrert", variant: "secondary" },
   amelding_sendt:            { label: "A-melding sendt", variant: "default" },
+  periode_låst:              { label: "Periode låst",    variant: "secondary" },
+  periode_lukket:            { label: "Periode lukket",  variant: "destructive" },
+  periode_åpnet:             { label: "Periode åpnet",   variant: "default" },
 };
 
 function UtfortAvIkon({ utfortAv }: { utfortAv: AuditLogEntry["utfortAv"] }) {

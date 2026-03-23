@@ -371,6 +371,35 @@ export type AmeldinInnsending = {
   opprettet: Date;
 };
 
+// ─── Regnskapsperioder (#116) ─────────────────────────────────────────────────
+
+/** Status for en regnskapsperiode (måned) */
+export type PeriodeStatus = "åpen" | "låst" | "lukket";
+
+/**
+ * En regnskapsperiode representerer én kalendermåned.
+ * Lagres i `users/{uid}/regnskapsperioder` med ID `{klientId ?? "global"}-{YYYY-MM}`.
+ *
+ * Låst: ingen nye bilag kan bokføres i perioden.
+ * Lukket: endelig avsluttet — kan ikke gjenåpnes.
+ */
+export type Regnskapsperiode = {
+  /** klientId eller "global" for periodeutstrekning på tvers av klienter */
+  klientId: string;
+  /** ISO-år, f.eks. 2026 */
+  år: number;
+  /** 1–12 */
+  måned: number;
+  status: PeriodeStatus;
+  /** UID til brukeren som låste/lukket perioden */
+  lukketAv?: string;
+  /** ISO-tidsstempel — når perioden ble låst/lukket */
+  lukketTidspunkt?: string;
+  /** Valgfritt notat om perioden */
+  merknad?: string;
+  opprettet?: Date;
+};
+
 /** Aktivitetslogg for agenten */
 export type AgentAktivitet = {
   type: "bokføring" | "forslag" | "rapport" | "epost" | "avstemming";
