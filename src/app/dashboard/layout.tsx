@@ -24,7 +24,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   const { klienter } = useKlienter(user?.uid ?? null);
 
   // Lag initialer fra visningsnavn eller e-post
-  const initials = user?.displayName
+  const initials = user?.displayName?.trim()
     ? user.displayName
         .split(" ")
         .map((n) => n[0])
