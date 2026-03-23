@@ -47,6 +47,25 @@ export type MvaTerm = {
   åBetale: number;
 };
 
+// ─── Kontantstrømoppstilling (#124) ──────────────────────────────────────────
+
+export type KontantstrømLinje = {
+  label: string;
+  belop: number;
+  /** Er denne linjen en delsum/total? */
+  erTotal?: boolean;
+};
+
+export type Kontantstrøm = {
+  operasjonell: KontantstrømLinje[];
+  nettoDrift: number;
+  investering: KontantstrømLinje[];
+  nettoInvestering: number;
+  finansiering: KontantstrømLinje[];
+  nettoFinansiering: number;
+  nettoEndring: number;
+};
+
 function grupperEtterKonto(poster: (Postering & { dato: string })[]) {
   const map = new Map<string, { kontonavn: string; netto: number }>();
   for (const p of poster) {
@@ -171,11 +190,103 @@ export function useRapporter(uid: string | null, klientId?: string | null) {
     return terminer.sort((a, b) => a.periode.localeCompare(b.periode));
   }, [posteringer]);
 
+  /**
+   * Kontantstrømoppstilling — indirekte metode (Rskl. § 6-4).
+   *
+   * A. Operasjonelle aktiviteter:
+   *    Driftsresultat + avskrivninger + endringer i arbeidskapital
+   * B. Investeringsaktiviteter:
+   *    Netto bevegelse på anleggsmiddelkontoer (10xx–12xx)
+   * C. Finansieringsaktiviteter:
+   *    Netto bevegelse på lån og egenkapitalkontoer (20xx–23xx)
+   */
+  const kontantstrømForPeriode = useCallback((periode: string): Kontantstrøm => {
+    const filtrert = periode === "alt"
+      ? posteringer
+      : posteringer.filter((p) => p.dato?.startsWith(periode));
+
+    const gruppert = grupperEtterKonto(filtrert);
+
+    // Hjelpefunksjon: sum netto for kontoer som starter med et av prefixene
+    function sumPrefixer(prefixer: string[]): number {
+      let sum = 0;
+      for (const [kontonr, { netto }] of gruppert.entries()) {
+        if (prefixer.some((pre) => kontonr.startsWith(pre))) {
+          sum += netto;
+        }
+      }
+      return sum;
+    }
+
+    // ── A. Operasjonelle aktiviteter ──────────────────────────────────────
+    const resultat = resultatForPeriode(periode);
+    const driftsresultat = resultat.resultat;
+
+    // Avskrivninger (konto 60xx, 61xx) — non-cash kostnad, legges tilbake
+    const avskrivninger = sumPrefixer(["60", "61"]);
+
+    // Endring i kundefordringer (15xx): netto debet = økning = neg cashflow
+    const endringFordringer = -(sumPrefixer(["15", "13"]));
+
+    // Endring i leverandørgjeld (24xx): netto kredit = økning = pos cashflow
+    const endringLevgjeld = -(sumPrefixer(["24"]));
+
+    // Endring i annen arbeidskapital (14xx, 16xx, 17xx, 25xx, 26xx, 29xx)
+    const endringArbeidskapital = -(sumPrefixer(["14", "16", "17", "25", "26", "29"]));
+
+    const nettoDrift =
+      driftsresultat + avskrivninger + endringFordringer + endringLevgjeld + endringArbeidskapital;
+
+    const operasjonell: KontantstrømLinje[] = [
+      { label: "Driftsresultat", belop: driftsresultat },
+      { label: "Avskrivninger og nedskrivninger (+)", belop: avskrivninger },
+      { label: "Endring i kundefordringer", belop: endringFordringer },
+      { label: "Endring i leverandørgjeld", belop: endringLevgjeld },
+      { label: "Endring i annen arbeidskapital", belop: endringArbeidskapital },
+      { label: "Netto kontantstrøm fra driften", belop: nettoDrift, erTotal: true },
+    ];
+
+    // ── B. Investeringsaktiviteter ───────────────────────────────────────
+    // Anleggsmidler (10xx–12xx): netto debet = kjøp = neg cashflow
+    const kjøpAnlegg = -(sumPrefixer(["10", "11", "12"]));
+
+    const nettoInvestering = kjøpAnlegg;
+
+    const investering: KontantstrømLinje[] = [
+      { label: "Netto investering i anleggsmidler", belop: kjøpAnlegg },
+      { label: "Netto kontantstrøm fra investeringer", belop: nettoInvestering, erTotal: true },
+    ];
+
+    // ── C. Finansieringsaktiviteter ──────────────────────────────────────
+    // Gjeld (20xx–23xx): netto kredit = nytt lån = pos cashflow
+    const endringLån = -(sumPrefixer(["20", "21", "22", "23"]));
+
+    const nettoFinansiering = endringLån;
+
+    const finansiering: KontantstrømLinje[] = [
+      { label: "Endring i lån og egenkapital", belop: endringLån },
+      { label: "Netto kontantstrøm fra finansiering", belop: nettoFinansiering, erTotal: true },
+    ];
+
+    const nettoEndring = nettoDrift + nettoInvestering + nettoFinansiering;
+
+    return {
+      operasjonell,
+      nettoDrift,
+      investering,
+      nettoInvestering,
+      finansiering,
+      nettoFinansiering,
+      nettoEndring,
+    };
+  }, [posteringer, resultatForPeriode]);
+
   return {
     loading,
     bilag,
     posteringer,
     resultatForPeriode,
+    kontantstrømForPeriode,
     balanse,
     mvaTerminer,
   };

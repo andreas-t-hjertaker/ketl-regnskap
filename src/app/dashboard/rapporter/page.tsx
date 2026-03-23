@@ -23,6 +23,7 @@ import {
   Truck,
   ChevronDown,
   ChevronRight,
+  ArrowUpDown,
 } from "lucide-react";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
@@ -33,7 +34,7 @@ import { useReskontro, type ReskontroPoster, type ÅpenPost, type AldersBøtte }
 import { lastNedSaftXml, saftMetadata } from "@/lib/saft-eksport";
 import { eksporterResultatCsv } from "@/lib/eksport";
 
-type Fane = "resultat" | "balanse" | "mva" | "reskontro" | "saft";
+type Fane = "resultat" | "balanse" | "kontantstrøm" | "mva" | "reskontro" | "saft";
 
 function formatNOK(value: number) {
   return new Intl.NumberFormat("nb-NO", {
@@ -365,7 +366,7 @@ function ReskontroFane({ reskontro }: { reskontro: ReturnType<typeof useReskontr
 export default function RapporterPage() {
   const { user } = useAuth();
   const { aktivKlient, aktivKlientId } = useAktivKlient();
-  const { loading, bilag, resultatForPeriode, balanse, mvaTerminer } = useRapporter(
+  const { loading, bilag, resultatForPeriode, kontantstrømForPeriode, balanse, mvaTerminer } = useRapporter(
     user?.uid ?? null,
     aktivKlientId
   );
@@ -430,6 +431,7 @@ export default function RapporterPage() {
           {[
             { id: "resultat" as Fane, label: "Resultatregnskap", icon: TrendingUp },
             { id: "balanse" as Fane, label: "Balanse", icon: BarChart3 },
+            { id: "kontantstrøm" as Fane, label: "Kontantstrøm", icon: ArrowUpDown },
             { id: "mva" as Fane, label: "MVA-rapport", icon: FileText },
             { id: "reskontro" as Fane, label: "Reskontro", icon: Users },
             { id: "saft" as Fane, label: "SAF-T", icon: FileBarChart },
@@ -705,6 +707,128 @@ export default function RapporterPage() {
       {!loading && aktivFane === "reskontro" && (
         <ReskontroFane reskontro={reskontro} />
       )}
+
+      {/* Kontantstrømoppstilling — indirekte metode (#124) */}
+      {!loading && aktivFane === "kontantstrøm" && (() => {
+        const ks = kontantstrømForPeriode(valgtPeriode);
+
+        function KontantstrømSeksjon({
+          tittel,
+          linjer,
+        }: {
+          tittel: string;
+          linjer: { label: string; belop: number; erTotal?: boolean }[];
+        }) {
+          return (
+            <div className="space-y-0">
+              <div className="bg-muted/40 px-4 py-2 rounded-t-md">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {tittel}
+                </p>
+              </div>
+              {linjer.map((linje, i) => (
+                <div
+                  key={i}
+                  className={`flex items-center justify-between px-4 py-2 text-sm border-x border-b border-border/40 ${
+                    linje.erTotal
+                      ? "bg-muted/20 font-semibold border-t border-border/60"
+                      : "hover:bg-muted/10"
+                  } ${i === linjer.length - 1 ? "rounded-b-md" : ""}`}
+                >
+                  <span className={linje.erTotal ? "" : "text-muted-foreground"}>
+                    {linje.label}
+                  </span>
+                  <span
+                    className={`font-mono text-right min-w-[120px] ${
+                      linje.belop >= 0
+                        ? linje.erTotal
+                          ? "text-green-700 dark:text-green-400"
+                          : ""
+                        : "text-red-600 dark:text-red-400"
+                    }`}
+                  >
+                    {formatNOK(linje.belop)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          );
+        }
+
+        return (
+          <SlideIn direction="up">
+            <div className="space-y-4">
+              {/* KPI-rad */}
+              <div className="grid gap-4 sm:grid-cols-3">
+                {[
+                  { label: "Kontantstrøm fra drift", belop: ks.nettoDrift, icon: TrendingUp },
+                  { label: "Kontantstrøm fra investering", belop: ks.nettoInvestering, icon: BarChart3 },
+                  { label: "Netto endring i kontanter", belop: ks.nettoEndring, icon: ArrowUpDown },
+                ].map((s) => (
+                  <Card key={s.label}>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardDescription className="text-xs">{s.label}</CardDescription>
+                      <s.icon className={`h-4 w-4 ${s.belop >= 0 ? "text-green-500" : "text-red-500"}`} />
+                    </CardHeader>
+                    <CardContent>
+                      <p className={`text-xl font-bold ${s.belop >= 0 ? "text-green-700 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                        {formatNOK(s.belop)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <ArrowUpDown className="h-4 w-4" />
+                    Kontantstrømoppstilling — indirekte metode
+                  </CardTitle>
+                  <CardDescription>
+                    Iht. Regnskapsloven § 6-4. Beregnet fra bokførte posteringer for valgt periode.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <KontantstrømSeksjon
+                    tittel="A. Kontantstrøm fra operasjonelle aktiviteter"
+                    linjer={ks.operasjonell}
+                  />
+                  <KontantstrømSeksjon
+                    tittel="B. Kontantstrøm fra investeringsaktiviteter"
+                    linjer={ks.investering}
+                  />
+                  <KontantstrømSeksjon
+                    tittel="C. Kontantstrøm fra finansieringsaktiviteter"
+                    linjer={ks.finansiering}
+                  />
+
+                  {/* Netto totalsum */}
+                  <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
+                    <span className="font-semibold text-sm">
+                      Netto endring i kontanter og kontantekvivalenter (A+B+C)
+                    </span>
+                    <span
+                      className={`font-mono font-bold text-base min-w-[120px] text-right ${
+                        ks.nettoEndring >= 0
+                          ? "text-green-700 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400"
+                      }`}
+                    >
+                      {formatNOK(ks.nettoEndring)}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Merk: Kontantstrømoppstillingen beregnes automatisk fra dobbelbokholderi-posteringer.
+                    For fullstendig kontantstrøm kreves IB-kontantbeholdning fra forrige periode.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </SlideIn>
+        );
+      })()}
 
       {/* SAF-T */}
       {!loading && aktivFane === "saft" && (() => {
