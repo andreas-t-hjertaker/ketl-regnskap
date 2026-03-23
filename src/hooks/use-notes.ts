@@ -44,6 +44,18 @@ export function useNotes() {
     return null;
   }
 
+  async function updateNote(id: string, title: string, content: string): Promise<boolean> {
+    const res = await fetchApi<Note>(`/notes/${id}`, {
+      method: "PATCH",
+      body: { title, content },
+    });
+    if (res.success) {
+      setNotes((prev) => prev.map((n) => n.id === id ? res.data : n));
+      return true;
+    }
+    return false;
+  }
+
   async function deleteNote(id: string): Promise<boolean> {
     const res = await fetchApi<{ deleted: boolean }>(`/notes/${id}`, {
       method: "DELETE",
@@ -55,5 +67,5 @@ export function useNotes() {
     return false;
   }
 
-  return { notes, loading, createNote, deleteNote, refetch: fetchNotes };
+  return { notes, loading, createNote, updateNote, deleteNote, refetch: fetchNotes };
 }
