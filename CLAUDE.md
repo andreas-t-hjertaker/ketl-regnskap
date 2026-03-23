@@ -57,7 +57,21 @@ gh issue close <nummer> --comment "Implementert i <commit-hash>. <kort beskrivel
 - **#56** MCP-server grunnstruktur
 - **#71** Orkestratoragent
 - **#63** Neonomics Open Banking
+- **#123** Sanntidsrapporter — pre-kalkulerte aggregater
+- **#125** E-post bilagsmottak — dedikert e-post per klient
 - **#104** Staging-miljø
+
+### Must-have (nye strategiske issues)
+- **#120** Dokumenthåndtering — mappestruktur, versjonering, bilagskobling
+- **#121** Valutahåndtering — flervaluta-bilag og kursomregning
+- **#122** Datamigrering — importer fra CSV/SAF-T
+- **#124** Kontantstrømoppstilling — lovpålagt NRS-rapport
+- **#126** Automatisk månedsrapport til klient — PDF med AI-kommentar
+- **#128** Godkjenningskjede — attestasjon og anvisning
+- **#129** Hovedbok — komplett posteringshistorikk per konto
+
+### Nice-to-have
+- **#127** Tidregistrering — timer per klient for faktureringsgrunnlag
 
 ### Filreferanser for vanlige oppgaver
 | Oppgave | Filer |
