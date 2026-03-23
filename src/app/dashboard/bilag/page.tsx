@@ -297,7 +297,11 @@ export default function BilagPage() {
                     ? motparter.find((m) => m.id === selectedBilag.motpartId)?.navn ?? selectedBilag.leverandor
                     : selectedBilag.leverandor
                   }
-                  {" · "}{selectedBilag.dato} · {formatNOK(selectedBilag.belop)}
+                  {" · "}{selectedBilag.dato}
+                  {selectedBilag.forfallsDato && (
+                    <> · <span className="text-amber-600 dark:text-amber-400">Forfall: {selectedBilag.forfallsDato}</span></>
+                  )}
+                  {" · "}{formatNOK(selectedBilag.belop)}
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
