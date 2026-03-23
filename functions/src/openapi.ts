@@ -299,6 +299,21 @@ export const OPENAPI_SPEC = {
             schema: { type: "string" },
             description: "Filtrer på klient",
           },
+          {
+            name: "status",
+            in: "query",
+            schema: {
+              type: "string",
+              enum: ["ubehandlet", "foreslått", "bokført", "avvist", "kreditert", "arkivert"],
+            },
+            description: "Filtrer på bilagstatus",
+          },
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 200, default: 50 },
+            description: "Maks antall bilag å returnere (standard: 50, maks: 200)",
+          },
         ],
         responses: {
           "200": {
