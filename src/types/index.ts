@@ -435,6 +435,70 @@ export type Regnskapsperiode = {
   opprettet?: Date;
 };
 
+// ─── Fakturamodul (utgående fakturaer) ───────────────────────────────────────
+
+/** Status for en utgående faktura */
+export type FakturaStatus =
+  | "kladd"       // Ikke sendt
+  | "sendt"       // Sendt til kunde
+  | "betalt"      // Betalt av kunde
+  | "forfalt"     // Etter forfallsdato, ikke betalt
+  | "kreditert";  // Kreditert/annullert
+
+/** Én linje på en faktura */
+export type FakturaLinje = {
+  beskrivelse: string;
+  antall: number;
+  enhetspris: number;   // ekskl. MVA
+  mvaKode: "25" | "15" | "12" | "0" | "fritak";
+  /** Prosentsats for valgt kode */
+  mvaSats: number;      // 0, 12, 15 eller 25
+  /** Rabatt i prosent (0–100) */
+  rabatt?: number;
+};
+
+/**
+ * Utgående faktura.
+ * Lagres i `users/{uid}/fakturaer`.
+ * Fakturanummeret tildeles sekvensielt per år (FF-YYYY-NNNN).
+ */
+export type Faktura = {
+  /** Sekvensielt fakturanummer, f.eks. 10001 */
+  fakturanr: number;
+  /** Formatert fakturanummer, f.eks. "FF-2026-10001" */
+  fakturanrFormatert: string;
+  klientId: string;
+  /** Motpart-ID (kunde) */
+  motpartId: string;
+  /** Kundenavn (snapshot for historikk) */
+  kundeNavn: string;
+  /** Kundens org.nr. (snapshot) */
+  kundeOrgnr?: string;
+  /** ISO-dato for fakturaen */
+  dato: string;
+  /** ISO-dato for forfall (typisk dato + 14 dager per NL § 10) */
+  forfallsDato: string;
+  linjer: FakturaLinje[];
+  /** Sum ekskl. MVA */
+  sumEksMva: number;
+  /** Sum MVA */
+  sumMva: number;
+  /** Sum inkl. MVA */
+  sumInkMva: number;
+  status: FakturaStatus;
+  /** Bilag-ID som ble opprettet da fakturaen ble bokført */
+  bilagId?: string;
+  /** Valgfri betalingsreferanse (KID / melding) */
+  kid?: string;
+  /** Bankkontonummer for betaling */
+  bankkontonr?: string;
+  /** Valgfri fritekst i bunntekst */
+  bunntekst?: string;
+  /** ISO-dato for betaling */
+  betaltDato?: string;
+  opprettet: Date;
+};
+
 /** Aktivitetslogg for agenten */
 export type AgentAktivitet = {
   type: "bokføring" | "forslag" | "rapport" | "epost" | "avstemming";

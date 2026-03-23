@@ -61,6 +61,11 @@ const HANDLING_ETIKETT: Record<AuditHandling, { label: string; variant: "default
   bilag_anvist:              { label: "Bilag anvist",           variant: "default" },
   bilag_godkjenning_avvist:  { label: "Godkjenning avvist",     variant: "destructive" },
   godkjenning_startet:       { label: "Godkjenningskjede startet", variant: "secondary" },
+  faktura_opprettet:         { label: "Faktura opprettet",         variant: "default" },
+  faktura_sendt:             { label: "Faktura sendt",             variant: "secondary" },
+  faktura_betalt:            { label: "Faktura betalt",            variant: "default" },
+  faktura_kreditert:         { label: "Faktura kreditert",         variant: "outline" },
+  faktura_bokfort:           { label: "Faktura bokført",           variant: "default" },
 };
 
 function UtfortAvIkon({ utfortAv }: { utfortAv: AuditLogEntry["utfortAv"] }) {

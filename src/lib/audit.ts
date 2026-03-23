@@ -38,11 +38,16 @@ export type AuditHandling =
   | "bilag_attestert"
   | "bilag_anvist"
   | "bilag_godkjenning_avvist"
-  | "godkjenning_startet";
+  | "godkjenning_startet"
+  | "faktura_opprettet"
+  | "faktura_sendt"
+  | "faktura_betalt"
+  | "faktura_kreditert"
+  | "faktura_bokfort";
 
 export type AuditEntry = {
   handling: AuditHandling;
-  entitetType: "bilag" | "klient" | "motpart" | "fil" | "prosjekt" | "ansatt" | "lonnsutbetaling" | "amelding" | "periode";
+  entitetType: "bilag" | "klient" | "motpart" | "fil" | "prosjekt" | "ansatt" | "lonnsutbetaling" | "amelding" | "periode" | "faktura";
   entitetId: string;
   utfortAv: "bruker" | "ai" | "system";
   uid: string;

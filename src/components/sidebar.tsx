@@ -43,6 +43,7 @@ import {
   FileSpreadsheet,
   CalendarDays,
   Activity,
+  FilePlus,
 } from "lucide-react";
 import { useAdmin } from "@/hooks/use-admin";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
@@ -52,6 +53,7 @@ import { useAuth } from "@/hooks/use-auth";
 const navItems = [
   { href: "/dashboard", label: "Oversikt", icon: LayoutDashboard },
   { href: "/dashboard/bilag", label: "Bilag", icon: Receipt },
+  { href: "/dashboard/faktura", label: "Faktura", icon: FilePlus },
   { href: "/dashboard/klienter", label: "Klienter", icon: Building2 },
   { href: "/dashboard/motparter", label: "Motparter", icon: Users },
   { href: "/dashboard/rapporter", label: "Rapporter", icon: BarChart3 },
