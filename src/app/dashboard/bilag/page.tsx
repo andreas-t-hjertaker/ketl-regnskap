@@ -81,7 +81,7 @@ function formatNOK(value: number) {
 export default function BilagPage() {
   const { user } = useAuth();
   const { aktivKlientId } = useAktivKlient();
-  const { bilag, loading, deleteBilag, bokforBilag, godkjennBilag, avvisBilag, krediterBilag } = useBilag(user?.uid ?? null, aktivKlientId);
+  const { bilag, loading, updateBilag, deleteBilag, bokforBilag, godkjennBilag, avvisBilag, krediterBilag } = useBilag(user?.uid ?? null, aktivKlientId);
   const { motparter } = useMotparter(user?.uid ?? null);
   const { uploadFlere, lasterOpp, fremdrift } = useBilagUpload(user?.uid ?? null, aktivKlientId);
   const [dragOver, setDragOver] = useState(false);
@@ -425,22 +425,39 @@ export default function BilagPage() {
                   </p>
                 )}
                 {selectedBilag.status === "bokført" && !selectedBilag.kreditertAvId && (
-                  <div className="mt-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive border-destructive/30 hover:bg-destructive/5"
-                      onClick={async () => {
-                        await krediterBilag(selectedBilag.id);
-                        setSelectedBilagId(null);
-                      }}
-                    >
-                      <RotateCcw className="mr-2 h-4 w-4" />
-                      Kreditér bilag
-                    </Button>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Oppretter et korrigeringsbilag med reverserte posteringer (Bokfl. § 9).
-                    </p>
+                  <div className="mt-3 space-y-3">
+                    {/* Forfallsdato — kan settes/endres direkte */}
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">Forfallsdato:</label>
+                      <Input
+                        type="date"
+                        className="h-7 text-xs w-36"
+                        defaultValue={selectedBilag.forfallsDato ?? ""}
+                        onBlur={async (e) => {
+                          const ny = e.target.value;
+                          if (ny !== (selectedBilag.forfallsDato ?? "")) {
+                            await updateBilag(selectedBilag.id, { forfallsDato: ny || undefined });
+                          }
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive border-destructive/30 hover:bg-destructive/5"
+                        onClick={async () => {
+                          await krediterBilag(selectedBilag.id);
+                          setSelectedBilagId(null);
+                        }}
+                      >
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Kreditér bilag
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Oppretter et korrigeringsbilag med reverserte posteringer (Bokfl. § 9).
+                      </p>
+                    </div>
                   </div>
                 )}
                 {selectedBilag.posteringer.length > 0 && (
