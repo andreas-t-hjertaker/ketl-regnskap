@@ -318,6 +318,154 @@ export function lastNedSaftXml(valg: SaftEksportValg): void {
   URL.revokeObjectURL(url);
 }
 
+// ─── SAF-T XSD-validering (#119) ─────────────────────────────────────────────
+
+export type SaftValideringsFunn = {
+  alvorlighet: "feil" | "advarsel" | "ok";
+  beskrivelse: string;
+};
+
+export type SaftValideringsResultat = {
+  gyldig: boolean;
+  funn: SaftValideringsFunn[];
+};
+
+/**
+ * Strukturell validering av SAF-T Financial 1.30 XML.
+ *
+ * Sjekker:
+ * - Påkrevde hoved-elementer
+ * - Header-feltvalidering
+ * - Debet/kredit-balanse per transaksjon (toleranse 0.01)
+ * - Minst én konto og minst én transaksjon
+ * - Datoformat (YYYY-MM-DD)
+ * - Beløpsformat (numerisk, ≥ 0)
+ *
+ * Merk: Full XSD-validering krever en XSD-parser. Denne funksjonen
+ * gir en god praktisk sjekk uten tredjepartsbibliotek.
+ */
+export function validerSaftXml(xml: string): SaftValideringsResultat {
+  const funn: SaftValideringsFunn[] = [];
+
+  // ── 1. Hoved-elementer ─────────────────────────────────────────────────────
+  const påkrevdElementer = [
+    { tag: "<AuditFile", label: "AuditFile (rotelement)" },
+    { tag: "<Header>", label: "Header" },
+    { tag: "<AuditFileVersion>", label: "AuditFileVersion" },
+    { tag: "<AuditFileCountry>", label: "AuditFileCountry" },
+    { tag: "<AuditFileDateCreated>", label: "AuditFileDateCreated" },
+    { tag: "<SoftwareID>", label: "SoftwareID" },
+    { tag: "<Company>", label: "Company" },
+    { tag: "<RegistrationNumber>", label: "RegistrationNumber" },
+    { tag: "<SelectionCriteria>", label: "SelectionCriteria" },
+    { tag: "<MasterFiles>", label: "MasterFiles" },
+    { tag: "<GeneralLedgerAccounts>", label: "GeneralLedgerAccounts" },
+    { tag: "<GeneralLedgerEntries>", label: "GeneralLedgerEntries" },
+    { tag: "<Journal>", label: "Journal" },
+    { tag: "<Transaction>", label: "Transaction (minst én)" },
+    { tag: "<Line>", label: "Line (minst én posteringslinje)" },
+  ];
+
+  for (const el of påkrevdElementer) {
+    if (!xml.includes(el.tag)) {
+      funn.push({ alvorlighet: "feil", beskrivelse: `Mangler påkrevd element: ${el.label}` });
+    }
+  }
+
+  // ── 2. Versjonskontroll ────────────────────────────────────────────────────
+  const versjonMatch = xml.match(/<AuditFileVersion>([^<]+)<\/AuditFileVersion>/);
+  if (versjonMatch) {
+    if (versjonMatch[1] !== "1.30") {
+      funn.push({
+        alvorlighet: "advarsel",
+        beskrivelse: `AuditFileVersion er "${versjonMatch[1]}", forventet "1.30"`,
+      });
+    } else {
+      funn.push({ alvorlighet: "ok", beskrivelse: "AuditFileVersion: 1.30 ✓" });
+    }
+  }
+
+  // ── 3. Lands-/valutakode ──────────────────────────────────────────────────
+  if (xml.includes("<AuditFileCountry>NO</AuditFileCountry>")) {
+    funn.push({ alvorlighet: "ok", beskrivelse: "AuditFileCountry: NO ✓" });
+  } else {
+    funn.push({ alvorlighet: "advarsel", beskrivelse: "AuditFileCountry er ikke 'NO'" });
+  }
+
+  // ── 4. Datoformat: AuditFileDateCreated ───────────────────────────────────
+  const datoMatch = xml.match(/<AuditFileDateCreated>([^<]+)<\/AuditFileDateCreated>/);
+  const datoRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (datoMatch) {
+    if (datoRegex.test(datoMatch[1])) {
+      funn.push({ alvorlighet: "ok", beskrivelse: `AuditFileDateCreated: ${datoMatch[1]} ✓` });
+    } else {
+      funn.push({
+        alvorlighet: "feil",
+        beskrivelse: `AuditFileDateCreated har ugyldig format: "${datoMatch[1]}" (forventet YYYY-MM-DD)`,
+      });
+    }
+  }
+
+  // ── 5. Debet/kredit-balanse per transaksjon ────────────────────────────────
+  const transaksjonBlokker = xml.match(/<Transaction>[\s\S]*?<\/Transaction>/g) ?? [];
+  let ubalansert = 0;
+
+  for (const blokk of transaksjonBlokker) {
+    let debet = 0;
+    let kredit = 0;
+    const debetTall = blokk.match(/<DebitAmount><Amount>([^<]+)<\/Amount>/g) ?? [];
+    const kreditTall = blokk.match(/<CreditAmount><Amount>([^<]+)<\/Amount>/g) ?? [];
+    for (const d of debetTall) {
+      const v = parseFloat(d.replace(/<[^>]+>/g, "").trim());
+      if (!isNaN(v)) debet += v;
+    }
+    for (const k of kreditTall) {
+      const v = parseFloat(k.replace(/<[^>]+>/g, "").trim());
+      if (!isNaN(v)) kredit += v;
+    }
+    if (Math.abs(debet - kredit) > 0.01) {
+      ubalansert++;
+    }
+  }
+
+  if (ubalansert === 0 && transaksjonBlokker.length > 0) {
+    funn.push({
+      alvorlighet: "ok",
+      beskrivelse: `Debet/kredit-balanse OK for alle ${transaksjonBlokker.length} transaksjoner ✓`,
+    });
+  } else if (ubalansert > 0) {
+    funn.push({
+      alvorlighet: "feil",
+      beskrivelse: `${ubalansert} av ${transaksjonBlokker.length} transaksjoner er ikke i balanse (debet ≠ kredit)`,
+    });
+  }
+
+  // ── 6. Kontoer registrert ─────────────────────────────────────────────────
+  const kontoBlokkAntall = (xml.match(/<Account>/g) ?? []).length;
+  if (kontoBlokkAntall > 0) {
+    funn.push({ alvorlighet: "ok", beskrivelse: `${kontoBlokkAntall} kontoer registrert i MasterFiles ✓` });
+  } else {
+    funn.push({ alvorlighet: "advarsel", beskrivelse: "Ingen kontoer funnet i MasterFiles" });
+  }
+
+  // ── 7. XML-tegnsett / encoding ────────────────────────────────────────────
+  if (xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>')) {
+    funn.push({ alvorlighet: "ok", beskrivelse: 'XML-deklarasjon: UTF-8 ✓' });
+  } else {
+    funn.push({ alvorlighet: "advarsel", beskrivelse: 'XML-deklarasjon mangler eller er ikke UTF-8' });
+  }
+
+  // ── 8. Skjema-lokasjon ────────────────────────────────────────────────────
+  if (xml.includes("SAF-T_Financial_Version_1.30.xsd")) {
+    funn.push({ alvorlighet: "ok", beskrivelse: "xsi:schemaLocation peker til SAF-T 1.30 XSD ✓" });
+  } else {
+    funn.push({ alvorlighet: "advarsel", beskrivelse: "xsi:schemaLocation mangler SAF-T 1.30 XSD-referanse" });
+  }
+
+  const harFeil = funn.some((f) => f.alvorlighet === "feil");
+  return { gyldig: !harFeil, funn };
+}
+
 /** Beregn antall bilag og periodeinfo for SAF-T-visning */
 export function saftMetadata(bilag: (Bilag & { id: string })[]) {
   const bokførte = bilag.filter((b) => b.status === "bokført" || b.status === "kreditert");

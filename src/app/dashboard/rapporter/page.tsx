@@ -31,7 +31,7 @@ import { useRapporter } from "@/hooks/use-rapporter";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
 import { useMotparter } from "@/hooks/use-motparter";
 import { useReskontro, type ReskontroPoster, type ÅpenPost, type AldersBøtte } from "@/hooks/use-reskontro";
-import { lastNedSaftXml, saftMetadata } from "@/lib/saft-eksport";
+import { lastNedSaftXml, saftMetadata, genererSaftXml, validerSaftXml, type SaftValideringsFunn } from "@/lib/saft-eksport";
 import { eksporterResultatCsv } from "@/lib/eksport";
 
 type Fane = "resultat" | "balanse" | "kontantstrøm" | "mva" | "reskontro" | "saft";
@@ -373,6 +373,7 @@ export default function RapporterPage() {
   const { motparter } = useMotparter(user?.uid ?? null, aktivKlientId);
   const reskontro = useReskontro(bilag, motparter);
   const [genererSaft, setGenererSaft] = useState(false);
+  const [saftValidering, setSaftValidering] = useState<{ gyldig: boolean; funn: SaftValideringsFunn[] } | null>(null);
   const periodeAlternativer = useMemo(
     () => genererPerioder(bilag.map((b) => b.dato)),
     [bilag]
@@ -891,21 +892,68 @@ export default function RapporterPage() {
                   </ul>
                 </div>
 
-                <Button
-                  disabled={!kanEksportere || genererSaft}
-                  onClick={async () => {
-                    if (!aktivKlient) return;
-                    setGenererSaft(true);
-                    try {
-                      lastNedSaftXml({ bilag, klient: aktivKlient, motparter });
-                    } finally {
-                      setGenererSaft(false);
-                    }
-                  }}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  {genererSaft ? "Genererer…" : "Last ned SAF-T XML"}
-                </Button>
+                {/* Validering (#119) */}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={!kanEksportere || genererSaft}
+                    onClick={() => {
+                      if (!aktivKlient) return;
+                      const xml = genererSaftXml({ bilag, klient: aktivKlient, motparter });
+                      setSaftValidering(validerSaftXml(xml));
+                    }}
+                  >
+                    <AlertCircle className="mr-2 h-4 w-4" />
+                    Valider XML
+                  </Button>
+                  <Button
+                    disabled={!kanEksportere || genererSaft}
+                    onClick={async () => {
+                      if (!aktivKlient) return;
+                      setGenererSaft(true);
+                      try {
+                        lastNedSaftXml({ bilag, klient: aktivKlient, motparter });
+                      } finally {
+                        setGenererSaft(false);
+                      }
+                    }}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    {genererSaft ? "Genererer…" : "Last ned SAF-T XML"}
+                  </Button>
+                </div>
+
+                {/* Valideringsresultat */}
+                {saftValidering && (
+                  <div className={`rounded-lg border p-4 space-y-2 ${
+                    saftValidering.gyldig
+                      ? "border-green-500/30 bg-green-500/5"
+                      : "border-red-500/30 bg-red-500/5"
+                  }`}>
+                    <p className={`text-sm font-semibold flex items-center gap-2 ${
+                      saftValidering.gyldig ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"
+                    }`}>
+                      {saftValidering.gyldig ? "✓ SAF-T XML er strukturelt gyldig" : "✗ SAF-T XML har valideringsfeil"}
+                    </p>
+                    <div className="space-y-1">
+                      {saftValidering.funn.map((funn, i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs">
+                          <span className={`shrink-0 mt-0.5 ${
+                            funn.alvorlighet === "feil"
+                              ? "text-red-600"
+                              : funn.alvorlighet === "advarsel"
+                              ? "text-amber-600"
+                              : "text-green-600"
+                          }`}>
+                            {funn.alvorlighet === "feil" ? "✗" : funn.alvorlighet === "advarsel" ? "⚠" : "✓"}
+                          </span>
+                          <span className="text-muted-foreground">{funn.beskrivelse}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <p className="text-xs text-muted-foreground">
                   Filnavn: SAF-T_Financial_{aktivKlient?.orgnr ?? "orgnr"}_{new Date().toISOString().slice(0,10).replace(/-/g,"")}_001.xml
                 </p>
