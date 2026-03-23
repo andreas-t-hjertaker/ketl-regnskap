@@ -106,12 +106,16 @@ export const OPENAPI_SPEC = {
           beskrivelse: { type: "string", example: "Kontorkostnader Q1" },
           belop: { type: "number", example: 1250.0 },
           klientId: { type: "string" },
+          motpartId: { type: "string", description: "Motpart-ID (kunde eller leverandør)" },
           status: {
             type: "string",
             enum: ["ubehandlet", "foreslått", "bokført", "avvist", "kreditert", "arkivert"],
           },
           kategori: { type: "string" },
           leverandor: { type: "string" },
+          forfallsDato: { type: "string", format: "date", example: "2026-04-15", description: "ISO-dato for forfall — brukes til purring og inkasso-oppfølging" },
+          kreditertAvId: { type: "string", description: "ID til korrigeringsbilag som reverserer dette bilaget" },
+          korrigererBilagId: { type: "string", description: "ID til originalbilag som dette bilaget reverserer" },
           posteringer: {
             type: "array",
             items: { $ref: "#/components/schemas/Postering" },
@@ -337,6 +341,7 @@ export const OPENAPI_SPEC = {
                   leverandor: { type: "string" },
                   kategori: { type: "string" },
                   motpartId: { type: "string" },
+                  forfallsDato: { type: "string", format: "date", example: "2026-04-20", description: "Forfallsdato for faktura (ISO-dato)" },
                   posteringer: {
                     type: "array",
                     minItems: 1,
