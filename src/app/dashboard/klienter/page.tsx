@@ -27,6 +27,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Download,
+  Pencil,
+  Check,
 } from "lucide-react";
 import Link from "next/link";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
@@ -227,10 +229,28 @@ function OpprettKlientSkjema({ onLagret, onAvbryt }: { onLagret: () => void; onA
 
 export default function KlienterPage() {
   const { user } = useAuth();
-  const { klienter, loading, deleteKlient } = useKlienter(user?.uid ?? null);
+  const { klienter, loading, updateKlient, deleteKlient } = useKlienter(user?.uid ?? null);
   const { setAktivKlient } = useAktivKlient();
   const [visOpprettSkjema, setVisOpprettSkjema] = useState(false);
+  const [redigererKlientId, setRedigererKlientId] = useState<string | null>(null);
+  const [lagrerRedigering, setLagrerRedigering] = useState(false);
   const [søk, setSøk] = useState("");
+
+  async function handleKlientRedigering(e: React.FormEvent<HTMLFormElement>, id: string) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    setLagrerRedigering(true);
+    await updateKlient(id, {
+      navn: fd.get("navn") as string,
+      kontaktperson: fd.get("kontaktperson") as string,
+      epost: fd.get("epost") as string,
+      telefon: (fd.get("telefon") as string) || undefined,
+      bransje: (fd.get("bransje") as string) || undefined,
+      adresse: (fd.get("adresse") as string) || undefined,
+    });
+    setLagrerRedigering(false);
+    setRedigererKlientId(null);
+  }
 
   const filtrerte = klienter.filter(
     (k) =>
@@ -339,6 +359,51 @@ export default function KlienterPage() {
         <StaggerList className="grid gap-4 sm:grid-cols-2" staggerDelay={0.07}>
           {filtrerte.map((klient) => (
             <StaggerItem key={klient.id}>
+              {redigererKlientId === klient.id ? (
+                <Card className="border-primary/30">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Rediger klient</CardTitle>
+                    <CardDescription className="font-mono text-xs">Org.nr: {klient.orgnr}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={(e) => handleKlientRedigering(e, klient.id)} className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`k-navn-${klient.id}`}>Firmanavn *</Label>
+                        <Input id={`k-navn-${klient.id}`} name="navn" defaultValue={klient.navn} required />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`k-kontakt-${klient.id}`}>Kontaktperson *</Label>
+                        <Input id={`k-kontakt-${klient.id}`} name="kontaktperson" defaultValue={klient.kontaktperson} required />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`k-epost-${klient.id}`}>E-post *</Label>
+                        <Input id={`k-epost-${klient.id}`} name="epost" type="email" defaultValue={klient.epost} required />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`k-tlf-${klient.id}`}>Telefon</Label>
+                        <Input id={`k-tlf-${klient.id}`} name="telefon" defaultValue={klient.telefon ?? ""} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`k-bransje-${klient.id}`}>Bransje</Label>
+                        <Input id={`k-bransje-${klient.id}`} name="bransje" defaultValue={klient.bransje ?? ""} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`k-adr-${klient.id}`}>Adresse</Label>
+                        <Input id={`k-adr-${klient.id}`} name="adresse" defaultValue={klient.adresse ?? ""} />
+                      </div>
+                      <div className="sm:col-span-2 flex gap-2">
+                        <Button type="submit" size="sm" disabled={lagrerRedigering}>
+                          <Check className="mr-1.5 h-3.5 w-3.5" />
+                          {lagrerRedigering ? "Lagrer…" : "Lagre"}
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setRedigererKlientId(null)}>
+                          Avbryt
+                        </Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              ) : (
               <Card className="hover:border-border transition-colors group relative">
                 <CardHeader className="pb-3">
                   <div className="flex items-start gap-3">
@@ -363,15 +428,26 @@ export default function KlienterPage() {
                         Org.nr: {klient.orgnr}
                       </CardDescription>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 text-destructive hover:text-destructive shrink-0"
-                      onClick={() => deleteKlient(klient.id)}
-                      title="Slett klient"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setRedigererKlientId(klient.id)}
+                        title="Rediger klient"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => deleteKlient(klient.id)}
+                        title="Slett klient"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
@@ -407,6 +483,7 @@ export default function KlienterPage() {
                   </div>
                 </CardContent>
               </Card>
+              )}
             </StaggerItem>
           ))}
         </StaggerList>
