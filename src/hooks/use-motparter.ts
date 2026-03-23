@@ -10,6 +10,7 @@ import {
 } from "@/lib/firebase/firestore";
 import { loggHandling } from "@/lib/audit";
 import { showToast } from "@/lib/toast";
+import { validerOrgnr } from "@/lib/validering";
 import type { Motpart } from "@/types";
 
 export type MotpartMedId = Motpart & { id: string };
@@ -47,6 +48,16 @@ export function useMotparter(uid: string | null, klientId?: string | null) {
   const addMotpart = useCallback(
     async (data: Omit<Motpart, "opprettet">): Promise<string | null> => {
       if (!uid || !path) return null;
+
+      if (data.orgnr) {
+        const orgnrRaw = data.orgnr.replace(/[\s.]/g, "");
+        if (!validerOrgnr(orgnrRaw)) {
+          showToast.error("Ugyldig organisasjonsnummer. Sjekk at det er 9 sifre og passerer Modulus 11.");
+          return null;
+        }
+        data = { ...data, orgnr: orgnrRaw };
+      }
+
       try {
         const ref = await addDocument(path, {
           ...data,

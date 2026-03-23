@@ -11,24 +11,10 @@ import {
 } from "@/lib/firebase/firestore";
 import { loggHandling } from "@/lib/audit";
 import { showToast } from "@/lib/toast";
+import { validerOrgnr, validerKontonr } from "@/lib/validering";
 import type { Klient } from "@/types";
 
 export type KlientMedId = Klient & { id: string };
-
-/**
- * Modulus 11-validering av norsk organisasjonsnummer (9 sifre).
- * Returnerer true hvis gyldig.
- */
-function validerOrgnr(orgnr: string): boolean {
-  const sifre = orgnr.replace(/\s/g, "");
-  if (!/^\d{9}$/.test(sifre)) return false;
-  const vekter = [3, 2, 7, 6, 5, 4, 3, 2];
-  const sum = vekter.reduce((acc, v, i) => acc + v * parseInt(sifre[i], 10), 0);
-  const kontroll = 11 - (sum % 11);
-  if (kontroll === 11) return parseInt(sifre[8], 10) === 0;
-  if (kontroll === 10) return false;
-  return parseInt(sifre[8], 10) === kontroll;
-}
 
 export function useKlienter(uid: string | null) {
   const [klienter, setKlienter] = useState<KlientMedId[]>([]);
@@ -60,9 +46,15 @@ export function useKlienter(uid: string | null) {
     async (data: Omit<Klient, "opprettet">): Promise<string | null> => {
       if (!uid || !path) return null;
 
-      const orgnrRaw = data.orgnr.replace(/\s/g, "");
+      const orgnrRaw = data.orgnr.replace(/[\s.]/g, "");
       if (!validerOrgnr(orgnrRaw)) {
         showToast.error("Ugyldig organisasjonsnummer. Sjekk at det er 9 sifre og passerer Modulus 11.");
+        return null;
+      }
+
+      const kontonrRaw = data.bankkontonr?.replace(/[\s.]/g, "");
+      if (kontonrRaw && !validerKontonr(kontonrRaw)) {
+        showToast.error("Ugyldig bankkontonummer. Sjekk at det er 11 sifre og passerer Modulus 11.");
         return null;
       }
 
@@ -70,6 +62,7 @@ export function useKlienter(uid: string | null) {
         const ref = await addDocument(path, {
           ...data,
           orgnr: orgnrRaw,
+          ...(kontonrRaw ? { bankkontonr: kontonrRaw } : {}),
           opprettet: serverTimestamp(),
         });
         await loggHandling(uid, "klient_opprettet", "klient", ref.id, { navn: data.navn });
