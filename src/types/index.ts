@@ -233,6 +233,35 @@ export type Budsjett = {
   oppdatert: Date;
 };
 
+/** Avskrivningsmetode */
+export type Avskrivningsmetode = "lineær" | "saldo";
+
+/** Anleggsmiddel i anleggsmiddelregisteret */
+export type Anleggsmiddel = {
+  klientId: string;
+  navn: string;
+  kontonr: string;       // Balansekontonr, f.eks. "1200" (maskiner)
+  kostpris: number;      // Anskaffelseskost
+  anskaffetDato: string; // ISO-dato
+  /** Forventet levetid i år */
+  levetidÅr: number;
+  metode: Avskrivningsmetode;
+  /** Restverdi ved lineær avskrivning */
+  restverdi?: number;
+  /** Avskrivningssats for saldobasert metode (0-100%) */
+  saldoSats?: number;
+  aktivert: boolean;
+  opprettet: Date;
+};
+
+/** Beregnet avskrivningslinje for ett år */
+export type Avskrivningslinje = {
+  år: number;
+  avskrivning: number;
+  akkumulertAvskrivning: number;
+  bokførtVerdi: number;
+};
+
 /** Aktivitetslogg for agenten */
 export type AgentAktivitet = {
   type: "bokføring" | "forslag" | "rapport" | "epost" | "avstemming";
