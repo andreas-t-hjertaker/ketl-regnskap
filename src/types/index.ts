@@ -185,6 +185,41 @@ export type Bilag = {
   };
   /** Prosjekt-ID — for prosjektregnskap og kostnadssted (#40) */
   prosjektId?: string;
+  /** Godkjenningskjede — attestasjon og anvisning (#128) */
+  godkjenning?: Godkjenningskjede;
+};
+
+// ─── Godkjenningskjede (#128) ─────────────────────────────────────────────────
+
+/** Rolle i godkjenningskjeden */
+export type GodkjenningRolle = "attestant" | "anviser";
+
+/** Status på ett enkelt godkjenningstrinn */
+export type GodkjenningTrinnStatus = "venter" | "godkjent" | "avvist";
+
+/** Ett steg i godkjenningskjeden (attestasjon eller anvisning) */
+export type GodkjenningTrinn = {
+  rolle: GodkjenningRolle;
+  /** UID til godkjenneren (satt ved handling) */
+  uid?: string;
+  /** Visningsnavn */
+  navn?: string;
+  status: GodkjenningTrinnStatus;
+  /** ISO-tidsstempel for handlingen */
+  tidspunkt?: string;
+  /** Valgfri kommentar fra godkjenneren */
+  merknad?: string;
+};
+
+/**
+ * Godkjenningskjede knyttet til et bilag.
+ * Attestasjon bekrefter saklighet; anvisning godkjenner betaling.
+ */
+export type Godkjenningskjede = {
+  attestasjon?: GodkjenningTrinn;
+  anvisning?: GodkjenningTrinn;
+  /** True = bilaget er ferdig behandlet i kjeden */
+  ferdig: boolean;
 };
 
 /** Prosjekt — for prosjektregnskap og kostnadssted (#40) */

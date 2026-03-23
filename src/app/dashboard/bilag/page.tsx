@@ -30,6 +30,9 @@ import {
   X,
   PenLine,
   MailWarning,
+  ClipboardCheck,
+  UserCheck,
+  BadgeCheck,
 } from "lucide-react";
 import { eksporterBilagCsv, eksporterPosteringerCsv } from "@/lib/eksport";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
@@ -37,6 +40,7 @@ import { AiForklaring } from "@/components/ai-forklaring";
 import { useAuth } from "@/hooks/use-auth";
 import { useBilag, type BilagMedId } from "@/hooks/use-bilag";
 import { usePaginertBilag } from "@/hooks/use-paginert-bilag";
+import { useGodkjenning } from "@/hooks/use-godkjenning";
 import { useBilagUpload } from "@/hooks/use-bilag-upload";
 import { useMotparter } from "@/hooks/use-motparter";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
@@ -87,6 +91,7 @@ export default function BilagPage() {
   const { bilag: alleBilag, loading: loadingAlle, updateBilag, deleteBilag, bokforBilag, godkjennBilag, avvisBilag, krediterBilag } = useBilag(user?.uid ?? null, aktivKlientId);
   const { motparter } = useMotparter(user?.uid ?? null);
   const { uploadFlere, lasterOpp, fremdrift } = useBilagUpload(user?.uid ?? null, aktivKlientId);
+  const { startGodkjenning, attester, anvis, avvisGodkjenning } = useGodkjenning(user?.uid ?? null);
   const [dragOver, setDragOver] = useState(false);
   const [selectedBilagId, setSelectedBilagId] = useState<string | null>(null);
   // Alltid avlest fra live bilag-array så detaljer er oppdaterte (f.eks. etter AI-analyse)
@@ -193,6 +198,12 @@ export default function BilagPage() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
+            <Link href="/dashboard/bilag/godkjenning">
+              <Button variant="outline" size="sm">
+                <ClipboardCheck className="mr-2 h-4 w-4" />
+                <span className="hidden xs:inline">Godkjenning</span>
+              </Button>
+            </Link>
             <Link href="/dashboard/bilag/purring">
               <Button variant="outline" size="sm">
                 <MailWarning className="mr-2 h-4 w-4" />
@@ -337,6 +348,134 @@ export default function BilagPage() {
                 </Button>
               </div>
             </CardHeader>
+
+            {/* Godkjenningskjede (#128) */}
+            {selectedBilag.godkjenning && (
+              <CardContent className="pt-0 pb-3">
+                <div className="rounded-lg border border-border/50 p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Godkjenningskjede
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedBilag.godkjenning.attestasjon && (
+                      <Badge
+                        variant={
+                          selectedBilag.godkjenning.attestasjon.status === "godkjent"
+                            ? "default"
+                            : selectedBilag.godkjenning.attestasjon.status === "avvist"
+                            ? "destructive"
+                            : "outline"
+                        }
+                        className="gap-1"
+                      >
+                        <UserCheck className="h-3 w-3" />
+                        Attestasjon:{" "}
+                        {selectedBilag.godkjenning.attestasjon.status === "venter"
+                          ? "venter"
+                          : selectedBilag.godkjenning.attestasjon.status === "godkjent"
+                          ? `godkjent av ${selectedBilag.godkjenning.attestasjon.navn ?? "ukjent"}`
+                          : "avvist"}
+                      </Badge>
+                    )}
+                    {selectedBilag.godkjenning.anvisning && (
+                      <Badge
+                        variant={
+                          selectedBilag.godkjenning.anvisning.status === "godkjent"
+                            ? "default"
+                            : selectedBilag.godkjenning.anvisning.status === "avvist"
+                            ? "destructive"
+                            : "outline"
+                        }
+                        className="gap-1"
+                      >
+                        <BadgeCheck className="h-3 w-3" />
+                        Anvisning:{" "}
+                        {selectedBilag.godkjenning.anvisning.status === "venter"
+                          ? "venter"
+                          : selectedBilag.godkjenning.anvisning.status === "godkjent"
+                          ? `godkjent av ${selectedBilag.godkjenning.anvisning.navn ?? "ukjent"}`
+                          : "avvist"}
+                      </Badge>
+                    )}
+                  </div>
+                  {!selectedBilag.godkjenning.ferdig && (
+                    <div className="flex gap-2 flex-wrap">
+                      {selectedBilag.godkjenning.attestasjon?.status === "venter" && (
+                        <>
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() =>
+                              attester(selectedBilag.id, selectedBilag.godkjenning!)
+                            }
+                          >
+                            <UserCheck className="h-3 w-3 mr-1" />
+                            Attester
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs text-destructive border-destructive/30"
+                            onClick={() =>
+                              avvisGodkjenning(
+                                selectedBilag.id,
+                                selectedBilag.godkjenning!,
+                                "attestasjon"
+                              )
+                            }
+                          >
+                            Avvis
+                          </Button>
+                        </>
+                      )}
+                      {selectedBilag.godkjenning.anvisning?.status === "venter" &&
+                        selectedBilag.godkjenning.attestasjon?.status !== "venter" && (
+                          <>
+                            <Button
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() =>
+                                anvis(selectedBilag.id, selectedBilag.godkjenning!)
+                              }
+                            >
+                              <BadgeCheck className="h-3 w-3 mr-1" />
+                              Anvis
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs text-destructive border-destructive/30"
+                              onClick={() =>
+                                avvisGodkjenning(
+                                  selectedBilag.id,
+                                  selectedBilag.godkjenning!,
+                                  "anvisning"
+                                )
+                              }
+                            >
+                              Avvis
+                            </Button>
+                          </>
+                        )}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            )}
+            {!selectedBilag.godkjenning && selectedBilag.status === "ubehandlet" && (
+              <CardContent className="pt-0 pb-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => startGodkjenning(selectedBilag.id)}
+                >
+                  <ClipboardCheck className="h-3 w-3 mr-1" />
+                  Start godkjenningskjede
+                </Button>
+              </CardContent>
+            )}
+
             {selectedBilag.aiForslag && selectedBilag.status === "foreslått" && (
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2">

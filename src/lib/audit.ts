@@ -34,7 +34,11 @@ export type AuditHandling =
   | "amelding_sendt"
   | "periode_låst"
   | "periode_lukket"
-  | "periode_åpnet";
+  | "periode_åpnet"
+  | "bilag_attestert"
+  | "bilag_anvist"
+  | "bilag_godkjenning_avvist"
+  | "godkjenning_startet";
 
 export type AuditEntry = {
   handling: AuditHandling;
