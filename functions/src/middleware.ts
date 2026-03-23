@@ -122,12 +122,18 @@ export function withValidation<T>(
 /**
  * Som withValidation, men godkjenner både Firebase ID-token og API-nøkkel.
  * Brukes for v1-endepunkter som skal nås via x-api-key.
+ * @param requiredScope Scope som kreves for API-nøkkel-tilgang (Firebase-tokens har alltid full tilgang)
  */
 export function withApiKeyOrAuthValidation<T>(
   schema: ZodSchema<T>,
-  handler: ValidatedHandler<T>
+  handler: ValidatedHandler<T>,
+  requiredScope?: ApiScope
 ): PublicHandler {
   return withApiKeyOrAuth(async ({ req, res, user, apiKeyScopes }) => {
+    if (requiredScope && apiKeyScopes !== undefined && !apiKeyScopes.includes(requiredScope)) {
+      fail(res, `Mangler scope: ${requiredScope}`, 403);
+      return;
+    }
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) {
       const messages = parsed.error.errors.map((e: z.ZodIssue) => e.message).join(", ");
@@ -160,8 +166,9 @@ export function withAdmin(handler: AuthHandler): PublicHandler {
 /**
  * Godkjenner enten Firebase ID-token (Bearer) eller API-nøkkel (x-api-key).
  * For API-nøkkel: hasher nøkkelen, slår opp i Firestore, setter bruker til eieren.
+ * @param requiredScope Scope som kreves for API-nøkkel-tilgang (Firebase-tokens har alltid full tilgang)
  */
-export function withApiKeyOrAuth(handler: AuthHandler): PublicHandler {
+export function withApiKeyOrAuth(handler: AuthHandler, requiredScope?: ApiScope): PublicHandler {
   return async ({ req, res }) => {
     // 1. Prøv Firebase ID-token
     const authHeader = req.headers.authorization;
@@ -197,12 +204,24 @@ export function withApiKeyOrAuth(handler: AuthHandler): PublicHandler {
         const keyDoc = snapshot.docs[0];
         const keyData = keyDoc.data();
 
+        // Sjekk utløpsdato
+        if (keyData.expiresAt && keyData.expiresAt.toDate() < new Date()) {
+          fail(res, "API-nøkkel er utløpt", 401);
+          return;
+        }
+
+        // Sjekk scope
+        const apiKeyScopes = (keyData.scopes ?? []) as ApiScope[];
+        if (requiredScope && !apiKeyScopes.includes(requiredScope)) {
+          fail(res, `Mangler scope: ${requiredScope}`, 403);
+          return;
+        }
+
         // Oppdater lastUsedAt
         await keyDoc.ref.update({ lastUsedAt: admin.firestore.FieldValue.serverTimestamp() });
 
         // Lag en pseudo-DecodedIdToken med eierens UID
         const user = { uid: keyData.userId } as DecodedIdToken;
-        const apiKeyScopes = (keyData.scopes ?? []) as ApiScope[];
         await handler({ req, res, user, apiKeyScopes });
         return;
       } catch {

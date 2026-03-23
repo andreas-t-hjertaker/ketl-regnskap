@@ -695,7 +695,7 @@ const v1ListKlienter = withApiKeyOrAuth(async ({ user, res }) => {
   const snap = await db.collection(`users/${user.uid}/klienter`)
     .orderBy("opprettet", "desc").get();
   success(res, snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-});
+}, "klienter:read");
 
 const v1CreateKlient = withApiKeyOrAuthValidation(klientSchema, async ({ user, data, res }) => {
   const ref = await db.collection(`users/${user.uid}/klienter`).add({
@@ -705,7 +705,7 @@ const v1CreateKlient = withApiKeyOrAuthValidation(klientSchema, async ({ user, d
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
   success(res, { id: ref.id, ...data }, 201);
-});
+}, "klienter:write");
 
 const v1GetKlient = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
@@ -713,7 +713,7 @@ const v1GetKlient = withApiKeyOrAuth(async ({ user, req, res }) => {
   const snap = await db.doc(`users/${user.uid}/klienter/${id}`).get();
   if (!snap.exists) return fail(res, "Klient ikke funnet", 404);
   success(res, { id: snap.id, ...snap.data() });
-});
+}, "klienter:read");
 
 const v1UpdateKlient = withApiKeyOrAuthValidation(klientSchema.partial(), async ({ user, req, data, res }) => {
   const id = pathSegment(req.path, 2);
@@ -723,7 +723,7 @@ const v1UpdateKlient = withApiKeyOrAuthValidation(klientSchema.partial(), async 
   if (!snap.exists) return fail(res, "Klient ikke funnet", 404);
   await ref.update({ ...data, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
   success(res, { id, ...snap.data(), ...data });
-});
+}, "klienter:write");
 
 const v1DeleteKlient = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
@@ -735,7 +735,7 @@ const v1DeleteKlient = withApiKeyOrAuth(async ({ user, req, res }) => {
   }
   await db.doc(`users/${user.uid}/klienter/${id}`).delete();
   success(res, { slettet: true });
-});
+}, "klienter:write");
 
 // ============================================================
 // v1 — Bilag
@@ -749,7 +749,7 @@ const v1ListBilag = withApiKeyOrAuth(async ({ user, req, res }) => {
   q = q.orderBy("dato", "desc").limit(Math.min(parseInt(lim ?? "50", 10), 200));
   const snap = await q.get();
   success(res, snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-});
+}, "bilag:read");
 
 const v1CreateBilag = withApiKeyOrAuthValidation(bilagSchema, async ({ user, data, res }) => {
   // Valider at klientId tilhører brukeren
@@ -785,7 +785,7 @@ const v1CreateBilag = withApiKeyOrAuthValidation(bilagSchema, async ({ user, dat
     tidspunkt: admin.firestore.FieldValue.serverTimestamp(),
   });
   success(res, { id: ref.id, bilagsnr, ...data, status: "bokført" }, 201);
-});
+}, "bilag:write");
 
 const v1GetBilag = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
@@ -793,7 +793,7 @@ const v1GetBilag = withApiKeyOrAuth(async ({ user, req, res }) => {
   const snap = await db.doc(`users/${user.uid}/bilag/${id}`).get();
   if (!snap.exists) return fail(res, "Bilag ikke funnet", 404);
   success(res, { id: snap.id, ...snap.data() });
-});
+}, "bilag:read");
 
 const v1GodkjennBilag = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
@@ -819,7 +819,7 @@ const v1GodkjennBilag = withApiKeyOrAuth(async ({ user, req, res }) => {
     tidspunkt: admin.firestore.FieldValue.serverTimestamp(),
   });
   success(res, { id, status: "bokført" });
-});
+}, "bilag:write");
 
 const v1AvvisBilag = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
@@ -829,7 +829,7 @@ const v1AvvisBilag = withApiKeyOrAuth(async ({ user, req, res }) => {
   if (!snap.exists) return fail(res, "Bilag ikke funnet", 404);
   await ref.update({ status: "avvist", updatedAt: admin.firestore.FieldValue.serverTimestamp() });
   success(res, { id, status: "avvist" });
-});
+}, "bilag:write");
 
 const v1KrediterBilag = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
@@ -877,7 +877,7 @@ const v1KrediterBilag = withApiKeyOrAuth(async ({ user, req, res }) => {
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
   success(res, { originalId: id, korrigeringId: korRef.id, bilagsnr }, 201);
-});
+}, "bilag:write");
 
 // ============================================================
 // v1 — Rapporter (server-side beregning)
@@ -930,7 +930,7 @@ const v1Resultat = withApiKeyOrAuth(async ({ user, req, res }) => {
     totalKostnader,
     resultat: totalInntekter - totalKostnader,
   });
-});
+}, "rapporter:read");
 
 // ============================================================
 // Webhooks — registrering og levering
@@ -960,7 +960,7 @@ const v1ListMotparter = withApiKeyOrAuth(async ({ user, req, res }) => {
   q = q.orderBy("navn", "asc").limit(200);
   const snap = await q.get();
   success(res, snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-});
+}, "klienter:read");
 
 const v1CreateMotpart = withApiKeyOrAuthValidation(motpartSchema, async ({ user, data, res }) => {
   // Valider at klientId tilhører brukeren
@@ -974,7 +974,7 @@ const v1CreateMotpart = withApiKeyOrAuthValidation(motpartSchema, async ({ user,
     opprettet: admin.firestore.FieldValue.serverTimestamp(),
   });
   success(res, { id: ref.id, ...data }, 201);
-});
+}, "klienter:write");
 
 const v1GetMotpart = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
@@ -982,7 +982,7 @@ const v1GetMotpart = withApiKeyOrAuth(async ({ user, req, res }) => {
   const snap = await db.doc(`users/${user.uid}/motparter/${id}`).get();
   if (!snap.exists) return fail(res, "Motpart ikke funnet", 404);
   success(res, { id: snap.id, ...snap.data() });
-});
+}, "klienter:read");
 
 const v1UpdateMotpart = withApiKeyOrAuthValidation(motpartSchema.partial(), async ({ user, req, data, res }) => {
   const id = pathSegment(req.path, 2);
@@ -992,7 +992,7 @@ const v1UpdateMotpart = withApiKeyOrAuthValidation(motpartSchema.partial(), asyn
   if (!snap.exists) return fail(res, "Motpart ikke funnet", 404);
   await ref.update({ ...data, oppdatert: admin.firestore.FieldValue.serverTimestamp() });
   success(res, { id, ...data });
-});
+}, "klienter:write");
 
 const v1DeleteMotpart = withApiKeyOrAuth(async ({ user, req, res }) => {
   const id = pathSegment(req.path, 2);
@@ -1002,7 +1002,7 @@ const v1DeleteMotpart = withApiKeyOrAuth(async ({ user, req, res }) => {
   if (!snap.exists) return fail(res, "Motpart ikke funnet", 404);
   await ref.delete();
   success(res, { deleted: true });
-});
+}, "klienter:write");
 
 // ============================================================
 
