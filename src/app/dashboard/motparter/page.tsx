@@ -23,6 +23,8 @@ import {
   Mail,
   MapPin,
   Building2,
+  Pencil,
+  Check,
 } from "lucide-react";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
@@ -122,10 +124,79 @@ function OpprettSkjema({
 function MotpartKort({
   motpart,
   onDelete,
+  onUpdate,
 }: {
   motpart: Motpart & { id: string };
   onDelete: (id: string) => void;
+  onUpdate: (id: string, data: Partial<Motpart>) => Promise<void>;
 }) {
+  const [redigerer, setRedigerer] = useState(false);
+  const [lagrer, setLagrer] = useState(false);
+  const editRef = useRef<HTMLFormElement>(null);
+
+  async function handleRedigerSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    setLagrer(true);
+    await onUpdate(motpart.id, {
+      navn: fd.get("navn") as string,
+      orgnr: (fd.get("orgnr") as string) || undefined,
+      kontaktperson: (fd.get("kontaktperson") as string) || undefined,
+      epost: (fd.get("epost") as string) || undefined,
+      telefon: (fd.get("telefon") as string) || undefined,
+      adresse: (fd.get("adresse") as string) || undefined,
+    });
+    setLagrer(false);
+    setRedigerer(false);
+  }
+
+  if (redigerer) {
+    return (
+      <Card className="border-primary/30">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Rediger {motpart.type === "kunde" ? "kunde" : "leverandør"}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form ref={editRef} onSubmit={handleRedigerSubmit} className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor={`navn-${motpart.id}`}>Navn *</Label>
+              <Input id={`navn-${motpart.id}`} name="navn" defaultValue={motpart.navn} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor={`orgnr-${motpart.id}`}>Org.nr</Label>
+              <Input id={`orgnr-${motpart.id}`} name="orgnr" defaultValue={motpart.orgnr ?? ""} placeholder="123 456 789" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor={`kontakt-${motpart.id}`}>Kontaktperson</Label>
+              <Input id={`kontakt-${motpart.id}`} name="kontaktperson" defaultValue={motpart.kontaktperson ?? ""} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor={`epost-${motpart.id}`}>E-post</Label>
+              <Input id={`epost-${motpart.id}`} name="epost" type="email" defaultValue={motpart.epost ?? ""} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor={`tlf-${motpart.id}`}>Telefon</Label>
+              <Input id={`tlf-${motpart.id}`} name="telefon" defaultValue={motpart.telefon ?? ""} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor={`adr-${motpart.id}`}>Adresse</Label>
+              <Input id={`adr-${motpart.id}`} name="adresse" defaultValue={motpart.adresse ?? ""} />
+            </div>
+            <div className="sm:col-span-2 flex gap-2">
+              <Button type="submit" size="sm" disabled={lagrer}>
+                <Check className="mr-1.5 h-3.5 w-3.5" />
+                {lagrer ? "Lagrer…" : "Lagre"}
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setRedigerer(false)}>
+                Avbryt
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="hover:border-border transition-colors group relative">
       <CardHeader className="pb-3">
@@ -143,15 +214,26 @@ function MotpartKort({
               </CardDescription>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 text-destructive hover:text-destructive shrink-0"
-            onClick={() => onDelete(motpart.id)}
-            title="Slett"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setRedigerer(true)}
+              title="Rediger"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-destructive hover:text-destructive"
+              onClick={() => onDelete(motpart.id)}
+              title="Slett"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-1.5">
@@ -187,7 +269,7 @@ function MotpartKort({
 export default function MotparterPage() {
   const { user } = useAuth();
   const { aktivKlient, aktivKlientId } = useAktivKlient();
-  const { kunder, leverandorer, loading, addMotpart, deleteMotpart } = useMotparter(
+  const { kunder, leverandorer, loading, addMotpart, updateMotpart, deleteMotpart } = useMotparter(
     user?.uid ?? null,
     aktivKlientId
   );
@@ -343,7 +425,7 @@ export default function MotparterPage() {
             <StaggerList className="grid gap-4 sm:grid-cols-2" staggerDelay={0.07}>
               {filtrerte.map((m) => (
                 <StaggerItem key={m.id}>
-                  <MotpartKort motpart={m} onDelete={deleteMotpart} />
+                  <MotpartKort motpart={m} onDelete={deleteMotpart} onUpdate={updateMotpart} />
                 </StaggerItem>
               ))}
             </StaggerList>
