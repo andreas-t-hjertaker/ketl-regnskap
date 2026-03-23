@@ -95,12 +95,12 @@ export function InntektKostnadGraf({ bilag }: Props) {
               axisLine={false}
             />
             <Tooltip
-              formatter={(value: number) =>
+              formatter={(value) =>
                 new Intl.NumberFormat("nb-NO", {
                   style: "currency",
                   currency: "NOK",
                   maximumFractionDigits: 0,
-                }).format(value)
+                }).format(Number(value))
               }
               contentStyle={{
                 fontSize: 12,
