@@ -168,10 +168,10 @@ export default function BilagPage() {
     <div className="space-y-6">
       {/* Toppseksjon */}
       <SlideIn direction="up" duration={0.4}>
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Bilag</h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Administrer kvitteringer og fakturaer. AI foreslår bokføring automatisk.
             </p>
           </div>
@@ -179,18 +179,18 @@ export default function BilagPage() {
             <Link href="/dashboard/bilag/purring">
               <Button variant="outline" size="sm">
                 <MailWarning className="mr-2 h-4 w-4" />
-                Purring
+                <span className="hidden xs:inline">Purring</span>
               </Button>
             </Link>
             <Link href="/dashboard/bilag/ny">
-              <Button variant="outline">
+              <Button variant="outline" size="sm">
                 <PenLine className="mr-2 h-4 w-4" />
                 Nytt bilag
               </Button>
             </Link>
-            <Button onClick={() => fileInputRef.current?.click()} disabled={lasterOpp}>
+            <Button size="sm" onClick={() => fileInputRef.current?.click()} disabled={lasterOpp}>
               <Upload className="mr-2 h-4 w-4" />
-              {lasterOpp ? `Laster opp… ${fremdrift}%` : "Last opp bilag"}
+              {lasterOpp ? `${fremdrift}%` : "Last opp"}
             </Button>
           </div>
         </div>

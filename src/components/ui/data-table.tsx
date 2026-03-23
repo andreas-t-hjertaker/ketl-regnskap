@@ -105,8 +105,8 @@ export function DataTable<T extends Record<string, unknown>>({
       )}
 
       {/* Tabell */}
-      <div className="rounded-lg border border-border/50">
-        <Table>
+      <div className="rounded-lg border border-border/50 overflow-x-auto -mx-4 sm:mx-0">
+        <Table className="min-w-[640px]">
           <TableHeader>
             <TableRow>
               {columns.map((col) => (
@@ -164,7 +164,7 @@ export function DataTable<T extends Record<string, unknown>>({
 
       {/* Paginering */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex flex-col gap-2 sm:flex-row items-center justify-between text-sm">
           <span className="text-muted-foreground">
             Viser {start}–{end} av {sorted.length}
           </span>
