@@ -26,11 +26,16 @@ export type AuditHandling =
   | "prosjekt_opprettet"
   | "prosjekt_oppdatert"
   | "prosjekt_slettet"
-  | "ai_auto_bokfort";
+  | "ai_auto_bokfort"
+  | "ansatt_opprettet"
+  | "ansatt_oppdatert"
+  | "ansatt_deaktivert"
+  | "lonnsutbetaling_registrert"
+  | "amelding_sendt";
 
 export type AuditEntry = {
   handling: AuditHandling;
-  entitetType: "bilag" | "klient" | "motpart" | "fil" | "prosjekt";
+  entitetType: "bilag" | "klient" | "motpart" | "fil" | "prosjekt" | "ansatt" | "lonnsutbetaling" | "amelding";
   entitetId: string;
   utfortAv: "bruker" | "ai" | "system";
   uid: string;

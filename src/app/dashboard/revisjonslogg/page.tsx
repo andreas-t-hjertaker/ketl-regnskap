@@ -48,7 +48,12 @@ const HANDLING_ETIKETT: Record<AuditHandling, { label: string; variant: "default
   prosjekt_opprettet:  { label: "Prosjekt opprettet", variant: "default" },
   prosjekt_oppdatert:  { label: "Prosjekt oppdatert", variant: "secondary" },
   prosjekt_slettet:    { label: "Prosjekt slettet", variant: "destructive" },
-  ai_auto_bokfort:     { label: "AI auto-bokført", variant: "default" },
+  ai_auto_bokfort:           { label: "AI auto-bokført", variant: "default" },
+  ansatt_opprettet:          { label: "Ansatt opprettet", variant: "default" },
+  ansatt_oppdatert:          { label: "Ansatt oppdatert", variant: "secondary" },
+  ansatt_deaktivert:         { label: "Ansatt deaktivert", variant: "destructive" },
+  lonnsutbetaling_registrert:{ label: "Lønnsutbetaling registrert", variant: "secondary" },
+  amelding_sendt:            { label: "A-melding sendt", variant: "default" },
 };
 
 function UtfortAvIkon({ utfortAv }: { utfortAv: AuditLogEntry["utfortAv"] }) {

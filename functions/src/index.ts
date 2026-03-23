@@ -1177,6 +1177,391 @@ const getWebhookLogg = withAuth(async ({ user, req, res }) => {
 });
 
 // ============================================================
+// ============================================================
+// A-melding (#107) — Skatteetatens nytt JSON API (obligatorisk fra 1. april 2026)
+// ============================================================
+
+// ─── Zod-skjema for ansatt-registrering ──────────────────────────────────────
+const ansattSchema = z.object({
+  klientId: z.string().min(1),
+  fnr: z.string().regex(/^\d{11}$/, "FNR/D-nummer må være 11 siffer"),
+  navn: z.string().min(1).max(200),
+  epost: z.string().email().optional(),
+  arbeidsforholdId: z.string().min(1).max(50),
+  typeArbeidsforhold: z.enum([
+    "ordinaertArbeidsforhold",
+    "maritimtArbeidsforhold",
+    "frilanserOppdragstakerHonorarPersonerMm",
+  ]),
+  ansettelsesdato: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  sluttdato: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  stillingsprosent: z.number().min(0).max(100),
+  antallTimerPerUke: z.number().min(0).max(168),
+  avloenningstype: z.enum(["fastLoenn", "timeloenn", "provisjon", "honorar"]),
+  yrke: z.string().regex(/^\d{6}$/, "Yrke må være 6-sifret STYRK-08 kode"),
+  skattekommune: z.string().regex(/^\d{4}$/, "Skattekommune må være 4 siffer"),
+});
+
+const lonnsUtbetalingSchema = z.object({
+  klientId: z.string().min(1),
+  ansattId: z.string().min(1),
+  arbeidsforholdId: z.string().min(1),
+  kalendermaaned: z.string().regex(/^\d{4}-\d{2}$/, "Må være YYYY-MM"),
+  bruttoLonn: z.number().min(0),
+  inntektsBeskrivelse: z.enum([
+    "fastloenn", "timeloenn", "overtidsgodtjoerelse", "bonus", "feriepenger", "sykepenger",
+  ]),
+  opptjeningFra: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  opptjeningTil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  skattetrekk: z.number().min(0),
+  utbetaltDato: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+const sendAmeldingSchema = z.object({
+  klientId: z.string().min(1),
+  kalendermaaned: z.string().regex(/^\d{4}-\d{2}$/, "Må være YYYY-MM"),
+  orgnr: z.string().regex(/^\d{9}$/, "Orgnr må være 9 siffer"),
+});
+
+// ─── Maskinporten-autentisering ────────────────────────────────────────────────
+/**
+ * Henter access token fra Maskinporten ved å signere et JWT med virksomhetssertifikat.
+ * Skope: skatteetaten:amelding.write
+ *
+ * Forutsetter at følgende environment variables er satt i Cloud Functions:
+ *   MASKINPORTEN_CLIENT_ID     — registrert klient-ID i Samarbeidsportalen
+ *   MASKINPORTEN_PRIVATE_KEY   — PEM-kodet RSA privat nøkkel (PKCS#8)
+ *   MASKINPORTEN_KID           — Key ID for sertifikatet i JWKS-endepunktet
+ *   MASKINPORTEN_ENV           — "test" eller "prod"
+ */
+async function hentMaskinportenToken(scope: string): Promise<string> {
+  const clientId = process.env.MASKINPORTEN_CLIENT_ID;
+  const privateKeyPem = process.env.MASKINPORTEN_PRIVATE_KEY;
+  const kid = process.env.MASKINPORTEN_KID;
+  const env = (process.env.MASKINPORTEN_ENV ?? "test") as "test" | "prod";
+
+  if (!clientId || !privateKeyPem || !kid) {
+    throw new Error(
+      "Maskinporten-konfigurasjon mangler: sett MASKINPORTEN_CLIENT_ID, " +
+      "MASKINPORTEN_PRIVATE_KEY og MASKINPORTEN_KID i Cloud Functions config."
+    );
+  }
+
+  const issuerBase =
+    env === "prod"
+      ? "https://maskinporten.no"
+      : "https://test.maskinporten.no";
+  const tokenUrl = `${issuerBase}/token`;
+
+  // Bygg JWT grant (RFC 7523 - JWT Bearer Token Grant)
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "RS256", kid };
+  const payload = {
+    aud: issuerBase,
+    iss: clientId,
+    scope,
+    iat: now,
+    exp: now + 120, // 2 minutters TTL
+    jti: crypto.randomUUID(),
+  };
+
+  const toBase64url = (obj: object) =>
+    Buffer.from(JSON.stringify(obj)).toString("base64url");
+
+  const headerB64 = toBase64url(header);
+  const payloadB64 = toBase64url(payload);
+  const signeringsInput = `${headerB64}.${payloadB64}`;
+
+  const privateKey = crypto.createPrivateKey(privateKeyPem);
+  const signatur = crypto
+    .createSign("SHA256")
+    .update(signeringsInput)
+    .sign(privateKey);
+  const signaturB64 = signatur.toString("base64url");
+
+  const jwtGrant = `${signeringsInput}.${signaturB64}`;
+
+  // Veksle JWT grant mot access token
+  const resp = await fetch(tokenUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwtGrant,
+    }),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Maskinporten token-feil (${resp.status}): ${body}`);
+  }
+
+  const data = (await resp.json()) as { access_token: string };
+  return data.access_token;
+}
+
+// ─── Generer A-melding JSON-payload ──────────────────────────────────────────
+/**
+ * Bygger JSON-payload for Skatteetatens nye A-melding API.
+ * Format: https://skatteetaten.github.io/api-dokumentasjon/api/amelding
+ */
+function byggAmeldingPayload(
+  orgnr: string,
+  kalendermaaned: string,
+  arbeidsforhold: Array<{
+    ansatt: FirebaseFirestore.DocumentData;
+    inntekter: FirebaseFirestore.DocumentData[];
+  }>
+): Record<string, unknown> {
+  return {
+    opplysningspliktigId: orgnr,
+    kalendermaaned,
+    leveranseinformasjon: {
+      kildesystem: "ketl cloud",
+      kildesystemVersjon: "1.0.0",
+      meldingsId: crypto.randomUUID(),
+      opprettetTidspunkt: new Date().toISOString(),
+    },
+    arbeidsgivere: [
+      {
+        orgnr,
+        arbeidsforhold: arbeidsforhold.map(({ ansatt, inntekter }) => ({
+          arbeidsforholdId: ansatt.arbeidsforholdId,
+          typeArbeidsforhold: ansatt.typeArbeidsforhold,
+          arbeidstaker: {
+            norskIdentifikator: ansatt.fnr,
+            navn: ansatt.navn,
+          },
+          ansettelsesperiode: {
+            startdato: ansatt.ansettelsesdato,
+            ...(ansatt.sluttdato ? { sluttdato: ansatt.sluttdato } : {}),
+          },
+          antallTimerPerUkeSomEnFullStillingTilsvarer: ansatt.antallTimerPerUke,
+          avloenningstype: ansatt.avloenningstype,
+          yrke: ansatt.yrke,
+          arbeidstidsordning: "ikkeSkift",
+          stillingsprosent: ansatt.stillingsprosent,
+          trekkoppgave: {
+            skattekommune: ansatt.skattekommune,
+          },
+          inntekter: inntekter.map((inn) => ({
+            startdatoOpptjeningsperiode: inn.opptjeningFra,
+            sluttdatoOpptjeningsperiode: inn.opptjeningTil,
+            fordel: "kontantytelse",
+            utloeserArbeidsgiveravgift: true,
+            inngaarIGrunnlagForTrekk: true,
+            skattetrekk: {
+              beloep: inn.skattetrekk,
+            },
+            loennsinntekt: {
+              beloep: inn.bruttoLonn,
+              beskrivelse: inn.inntektsBeskrivelse,
+            },
+          })),
+        })),
+      },
+    ],
+  };
+}
+
+// ─── Route-handlere for A-melding ─────────────────────────────────────────────
+
+/** POST /v1/amelding/ansatte — Registrer ny ansatt */
+async function v1OpprettAnsatt({ req, res }: RouteContext) {
+  await withAuth(req, res, async (uid) => {
+    await withValidation(req, res, ansattSchema, async (data) => {
+      const ref = await db.collection(`users/${uid}/ansatte`).add({
+        ...data,
+        aktiv: true,
+        opprettet: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      await loggHandling(uid, "ansatt_opprettet", "ansatt", ref.id);
+      success(res, { id: ref.id, ...data }, 201);
+    });
+  });
+}
+
+/** GET /v1/amelding/ansatte — List ansatte for klient */
+async function v1ListAnsatte({ req, res }: RouteContext) {
+  await withApiKeyOrAuth(req, res, ["bilag:read"], async (uid) => {
+    const klientId = req.query.klientId as string | undefined;
+    let query: FirebaseFirestore.Query = db.collection(`users/${uid}/ansatte`);
+    if (klientId) query = query.where("klientId", "==", klientId);
+    const snap = await query.orderBy("navn").get();
+    const ansatte = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    success(res, { ansatte, total: ansatte.length });
+  });
+}
+
+/** POST /v1/amelding/lonnsutbetalinger — Registrer lønnsutbetaling */
+async function v1OpprettLonnsutbetaling({ req, res }: RouteContext) {
+  await withAuth(req, res, async (uid) => {
+    await withValidation(req, res, lonnsUtbetalingSchema, async (data) => {
+      // Beregn arbeidsgiveravgift (standard 14,1 %)
+      const arbeidsgiveravgift = Math.round(data.bruttoLonn * 0.141 * 100) / 100;
+      const ref = await db.collection(`users/${uid}/lonnsutbetalinger`).add({
+        ...data,
+        arbeidsgiveravgift,
+        status: "kladd",
+        opprettet: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      await loggHandling(uid, "lonnsutbetaling_registrert", "lonnsutbetaling", ref.id);
+      success(res, { id: ref.id, ...data, arbeidsgiveravgift }, 201);
+    });
+  });
+}
+
+/**
+ * POST /v1/amelding/send — Send A-melding til Skatteetaten
+ *
+ * 1. Henter ansatte og lønnsutbetalinger for kalendermåneden
+ * 2. Bygger JSON-payload etter Skatteetatens spec
+ * 3. Autentiserer via Maskinporten
+ * 4. POSTer til Skatteetatens A-melding API
+ * 5. Lagrer innsendingsstatus med referansenummer i Firestore
+ */
+async function v1SendAmelding({ req, res }: RouteContext) {
+  await withAuth(req, res, async (uid) => {
+    await withValidation(req, res, sendAmeldingSchema, async (data) => {
+      const { klientId, kalendermaaned, orgnr } = data;
+
+      // Hent ansatte
+      const ansatteSnap = await db
+        .collection(`users/${uid}/ansatte`)
+        .where("klientId", "==", klientId)
+        .where("aktiv", "==", true)
+        .get();
+
+      if (ansatteSnap.empty) {
+        fail(res, "Ingen aktive ansatte funnet for denne klienten.", 400);
+        return;
+      }
+
+      // Hent lønnsutbetalinger for kalendermåneden
+      const lonnsSnap = await db
+        .collection(`users/${uid}/lonnsutbetalinger`)
+        .where("klientId", "==", klientId)
+        .where("kalendermaaned", "==", kalendermaaned)
+        .get();
+
+      // Bygg arbeidsforhold-struktur — én per ansatt
+      const ansatteMap = new Map(ansatteSnap.docs.map((d) => [d.id, d.data()]));
+      const lonnsMap = new Map<string, FirebaseFirestore.DocumentData[]>();
+      for (const d of lonnsSnap.docs) {
+        const inn = d.data();
+        const prev = lonnsMap.get(inn.ansattId) ?? [];
+        prev.push(inn);
+        lonnsMap.set(inn.ansattId, prev);
+      }
+
+      const arbeidsforhold = Array.from(ansatteMap.entries())
+        .filter(([id]) => lonnsMap.has(id))
+        .map(([id, ansatt]) => ({
+          ansatt,
+          inntekter: lonnsMap.get(id) ?? [],
+        }));
+
+      if (arbeidsforhold.length === 0) {
+        fail(res, `Ingen lønnsutbetalinger registrert for ${kalendermaaned}.`, 400);
+        return;
+      }
+
+      const payload = byggAmeldingPayload(orgnr, kalendermaaned, arbeidsforhold);
+
+      // Skatteetatens A-melding API-endepunkter
+      const env = (process.env.MASKINPORTEN_ENV ?? "test") as "test" | "prod";
+      const apiBase =
+        env === "prod"
+          ? "https://api.sits.no/api/amelding/v1"
+          : "https://api-at.sits.no/api/amelding/v1";
+
+      let apiToken: string;
+      try {
+        apiToken = await hentMaskinportenToken("skatteetaten:amelding.write");
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        fail(res, `Maskinporten-autentisering feilet: ${msg}`, 502);
+        return;
+      }
+
+      const apiResp = await withRetry(() =>
+        fetch(`${apiBase}/meldinger`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiToken}`,
+          },
+          body: JSON.stringify(payload),
+        })
+      );
+
+      const responseText = await apiResp.text();
+      let responseJson: Record<string, unknown> = {};
+      try { responseJson = JSON.parse(responseText); } catch { /* ikke-JSON */ }
+
+      const status = apiResp.ok ? "akseptert" : "avvist";
+      const meldingsId = (payload.leveranseinformasjon as Record<string, string>).meldingsId;
+      const referansenummer = apiResp.ok
+        ? ((responseJson.referansenummer as string | undefined) ?? null)
+        : null;
+
+      // Lagre innsendingsstatus
+      const innsendingRef = await db.collection(`users/${uid}/amelding_innsendinger`).add({
+        klientId,
+        kalendermaaned,
+        meldingsId,
+        referansenummer,
+        sendtTidspunkt: admin.firestore.FieldValue.serverTimestamp(),
+        status,
+        feilmelding: apiResp.ok ? null : responseText.slice(0, 500),
+        antallArbeidsforhold: arbeidsforhold.length,
+        sumBruttoLonn: arbeidsforhold.reduce(
+          (s, af) => s + af.inntekter.reduce((si, inn) => si + (inn.bruttoLonn as number), 0),
+          0
+        ),
+        orgnr,
+        opprettet: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      await loggHandling(uid, "amelding_sendt", "amelding", innsendingRef.id);
+
+      if (!apiResp.ok) {
+        fail(res, `A-melding ble avvist av Skatteetaten (${apiResp.status}): ${responseText.slice(0, 200)}`, 502);
+        return;
+      }
+
+      success(res, {
+        innsendingId: innsendingRef.id,
+        meldingsId,
+        referansenummer,
+        kalendermaaned,
+        antallArbeidsforhold: arbeidsforhold.length,
+        status: "akseptert",
+      });
+    });
+  });
+}
+
+/** GET /v1/amelding/innsendinger — Historikk over A-melding-innsendinger */
+async function v1ListAmeldingInnsendinger({ req, res }: RouteContext) {
+  await withApiKeyOrAuth(req, res, ["rapporter:read"], async (uid) => {
+    const klientId = req.query.klientId as string | undefined;
+    let query: FirebaseFirestore.Query = db
+      .collection(`users/${uid}/amelding_innsendinger`)
+      .orderBy("sendtTidspunkt", "desc")
+      .limit(50);
+    if (klientId) query = query.where("klientId", "==", klientId);
+    const snap = await query.get();
+    success(res, {
+      innsendinger: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+      total: snap.size,
+    });
+  });
+}
+
+// ============================================================
 // Ruter — enkel stibasert ruting
 // ============================================================
 
@@ -1222,6 +1607,12 @@ const routes: Route[] = [
   { method: "GET",    path: "/v1/rapporter/resultat", handler: v1Resultat },
   { method: "GET",    path: "/v1/motparter",        handler: v1ListMotparter },
   { method: "POST",   path: "/v1/motparter",        handler: v1CreateMotpart },
+  // ─── A-melding (#107) ────────────────────────────────────────────────────────
+  { method: "GET",    path: "/v1/amelding/ansatte",        handler: v1ListAnsatte },
+  { method: "POST",   path: "/v1/amelding/ansatte",        handler: v1OpprettAnsatt },
+  { method: "POST",   path: "/v1/amelding/lonnsutbetalinger", handler: v1OpprettLonnsutbetaling },
+  { method: "POST",   path: "/v1/amelding/send",           handler: v1SendAmelding },
+  { method: "GET",    path: "/v1/amelding/innsendinger",   handler: v1ListAmeldingInnsendinger },
   // Parametriserte v1-ruter håndteres med startsWith-matching i api-funksjonen
   // ─── OpenAPI-dokumentasjon ─────────────────────────────────────────────────
   {

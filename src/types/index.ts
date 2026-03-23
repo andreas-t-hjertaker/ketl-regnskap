@@ -306,6 +306,71 @@ export type Avskrivningslinje = {
   bokførtVerdi: number;
 };
 
+// ─── A-melding (#107) ────────────────────────────────────────────────────────
+
+/** Ansatt registrert for A-melding-rapportering */
+export type Ansatt = {
+  klientId: string;
+  /** Fødselsnummer / D-nummer (11 siffer) */
+  fnr: string;
+  navn: string;
+  epost?: string;
+  /** Arbeidsforholds-ID — unik per ansatt per arbeidsgiver */
+  arbeidsforholdId: string;
+  typeArbeidsforhold: "ordinaertArbeidsforhold" | "maritimtArbeidsforhold" | "frilanserOppdragstakerHonorarPersonerMm";
+  ansettelsesdato: string;   // ISO-dato
+  sluttdato?: string;        // ISO-dato — satt ved avslutning
+  stillingsprosent: number;  // 0-100
+  antallTimerPerUke: number; // f.eks. 37.5
+  avloenningstype: "fastLoenn" | "timeloenn" | "provisjon" | "honorar";
+  /** STYRK-08 yrke, 6 siffer */
+  yrke: string;
+  skattekommune: string; // 4-sifret kommunenummer
+  aktiv: boolean;
+  opprettet: Date;
+};
+
+/** Lønnsutbetaling for én måned, knyttet til en ansatt */
+export type LonnsUtbetaling = {
+  klientId: string;
+  ansattId: string;            // Referanse til Ansatt-dokument
+  arbeidsforholdId: string;
+  kalendermaaned: string;      // "YYYY-MM"
+  /** Brutto lønn/inntekt i NOK */
+  bruttoLonn: number;
+  /** Inntektstype — fastloenn, timeloenn, overtidsgodtjoerelse, etc. */
+  inntektsBeskrivelse: "fastloenn" | "timeloenn" | "overtidsgodtjoerelse" | "bonus" | "feriepenger" | "sykepenger";
+  opptjeningFra: string;       // ISO-dato
+  opptjeningTil: string;       // ISO-dato
+  /** Skattetrekk i NOK */
+  skattetrekk: number;
+  /** Arbeidsgiveravgift i NOK (beregnes automatisk) */
+  arbeidsgiveravgift?: number;
+  utbetaltDato: string;        // ISO-dato
+  status: "kladd" | "sendt" | "bekreftet" | "feil";
+  opprettet: Date;
+};
+
+/** Innsending av A-melding for én kalendermåned */
+export type AmeldinInnsending = {
+  klientId: string;
+  kalendermaaned: string;   // "YYYY-MM"
+  /** Skatteetatens meldingsId (UUID returnert fra API) */
+  meldingsId?: string;
+  /** Referansenummer fra Skatteetaten */
+  referansenummer?: string;
+  /** Tidspunkt innsendingen ble sendt */
+  sendtTidspunkt?: Date;
+  status: "kladd" | "sendt" | "akseptert" | "bekreftet" | "avvist" | "feil";
+  /** Feilmelding fra Skatteetaten ved avvisning */
+  feilmelding?: string;
+  /** Antall arbeidsforhold inkludert */
+  antallArbeidsforhold: number;
+  /** Sum brutto lønn sendt inn */
+  sumBruttoLonn: number;
+  opprettet: Date;
+};
+
 /** Aktivitetslogg for agenten */
 export type AgentAktivitet = {
   type: "bokføring" | "forslag" | "rapport" | "epost" | "avstemming";
