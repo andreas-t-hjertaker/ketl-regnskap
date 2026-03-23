@@ -202,6 +202,29 @@ export type AiForslag = {
   konfidens: number;    // 0-1
   foreslåttKategori: string;
   tidspunkt: Date;
+  /** Detaljert forklaring av AI-valgene (#100 Agent-forklarbarhet) */
+  forklaring?: AiForslagForklaring;
+};
+
+/** Strukturert forklaring av AI-beslutningen */
+export type AiForslagForklaring = {
+  /** Hva AI-en identifiserte i dokumentet */
+  dokumentSignaler: string[];
+  /** Hvorfor agenten valgte hver konto */
+  kontoValg: {
+    kontonr: string;
+    grunn: string;
+  }[];
+  /** Regelreferanser (bokføringslov, MVA-lov osv.) */
+  regelreferanser?: string[];
+  /** Lignende historiske bilag som påvirket forslaget */
+  lignendeBilag?: {
+    bilagsnr: number;
+    beskrivelse: string;
+    likhet: number; // 0-1
+  }[];
+  /** Usikkerhetsområder — hva agenten var usikker på */
+  usikkerhet?: string[];
 };
 
 /** Månedlig oversikt */

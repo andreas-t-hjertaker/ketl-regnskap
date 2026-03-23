@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { eksporterBilagCsv, eksporterPosteringerCsv } from "@/lib/eksport";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
+import { AiForklaring } from "@/components/ai-forklaring";
 import { useAuth } from "@/hooks/use-auth";
 import { useBilag, type BilagMedId } from "@/hooks/use-bilag";
 import { useBilagUpload } from "@/hooks/use-bilag-upload";
@@ -328,8 +329,12 @@ export default function BilagPage() {
                   <Badge variant="secondary" className="font-mono text-xs">
                     {Math.round(selectedBilag.aiForslag.konfidens * 100)}% konfidens
                   </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {selectedBilag.aiForslag.foreslåttKategori}
+                  </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">{selectedBilag.aiForslag.begrunnelse}</p>
+
+                {/* Foreslåtte posteringer */}
                 <div className="rounded-lg border border-border/50 overflow-hidden">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50">
@@ -356,6 +361,10 @@ export default function BilagPage() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Agent-forklarbarhet (#100) */}
+                <AiForklaring forslag={selectedBilag.aiForslag} />
+
                 <div className="flex gap-2">
                   <Button
                     size="sm"
