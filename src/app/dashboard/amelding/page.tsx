@@ -8,6 +8,7 @@
  */
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -423,11 +424,18 @@ export default function AmeldingPage() {
             Skatteetatens nytt JSON API — obligatorisk fra 1. april 2026
           </p>
         </div>
-        <select
-          value={valgtMåned}
-          onChange={(e) => setValgtMåned(e.target.value)}
-          className="rounded-md border bg-background px-3 py-2 text-sm w-44"
-        >
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link href="/dashboard/amelding/lonnsslipp">
+            <Button variant="outline" size="sm">
+              <FileText className="h-4 w-4 mr-1.5" />
+              Lønnsseddel
+            </Button>
+          </Link>
+          <select
+            value={valgtMåned}
+            onChange={(e) => setValgtMåned(e.target.value)}
+            className="rounded-md border bg-background px-3 py-2 text-sm w-44"
+          >
           {måneder.map((m) => (
             <option key={m} value={m}>
               {new Date(m + "-01").toLocaleDateString("nb-NO", {
@@ -436,7 +444,8 @@ export default function AmeldingPage() {
               })}
             </option>
           ))}
-        </select>
+          </select>
+        </div>
       </div>
 
       {/* Tidskritisk-banner */}
