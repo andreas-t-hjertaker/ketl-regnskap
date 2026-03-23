@@ -113,7 +113,7 @@ describe("byggCsv", () => {
 function lagBilag(overrides: Partial<BilagMedId> = {}): BilagMedId {
   return {
     id: "b1",
-    bilagsnr: "BL-2026-0001",
+    bilagsnr: 1,
     dato: "2026-01-15",
     beskrivelse: "Konsulentfaktura",
     klientId: "k1",
@@ -134,8 +134,8 @@ describe("byggBilagCsv", () => {
   });
 
   it("inneholder bilagsnummer i data-raden", () => {
-    const csv = byggBilagCsv([lagBilag({ bilagsnr: "BL-2026-0042" })]);
-    expect(csv).toContain("BL-2026-0042");
+    const csv = byggBilagCsv([lagBilag({ bilagsnr: 42 })]);
+    expect(csv).toContain("42");
   });
 
   it("viser Ja for bilag med vedlegg, Nei uten", () => {
@@ -147,7 +147,7 @@ describe("byggBilagCsv", () => {
 
   it("slår opp motpartsnavn fra motparter-liste", () => {
     const bilag = lagBilag({ motpartId: "m1" });
-    const motparter = [{ id: "m1", navn: "Leverandør AS", type: "leverandor" as const, klientId: "k1" }];
+    const motparter = [{ id: "m1", navn: "Leverandør AS", type: "leverandor" as const, klientId: "k1", opprettet: new Date() }];
     const csv = byggBilagCsv([bilag], motparter);
     expect(csv).toContain("Leverandør AS");
   });
@@ -164,11 +164,12 @@ describe("byggBilagCsv", () => {
   });
 
   it("viser kryssreferanse til krediterende bilag", () => {
-    const kreditert = lagBilag({ id: "b2", bilagsnr: "BL-2026-0002" });
-    const original = lagBilag({ id: "b1", bilagsnr: "BL-2026-0001", kreditertAvId: "b2" });
+    const kreditert = lagBilag({ id: "b2", bilagsnr: 2 });
+    const original = lagBilag({ id: "b1", bilagsnr: 1, kreditertAvId: "b2" });
     const csv = byggBilagCsv([original, kreditert]);
-    // Kreditert av-kolonnen skal vise bilagsnr, ikke id
-    expect(csv).toContain("BL-2026-0002");
+    // Kreditert av-kolonnen skal vise bilagsnr (2), ikke id (b2)
+    const dataRad = csv.split("\r\n")[1];
+    expect(dataRad).toContain(",2,");
   });
 
   it("returnerer tom CSV (kun header) for tom bilagliste", () => {
