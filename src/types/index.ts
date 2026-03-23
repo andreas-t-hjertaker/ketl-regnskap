@@ -183,6 +183,27 @@ export type Bilag = {
     sistePurringDato: string; // ISO-dato
     inkasso?: boolean;        // True hvis saken er sendt til inkasso
   };
+  /** Prosjekt-ID — for prosjektregnskap og kostnadssted (#40) */
+  prosjektId?: string;
+};
+
+/** Prosjekt — for prosjektregnskap og kostnadssted (#40) */
+export type Prosjekt = {
+  navn: string;
+  beskrivelse?: string;
+  klientId: string;
+  /** ISO-dato for prosjektstart */
+  startDato?: string;
+  /** ISO-dato for prosjektslutt (null = pågående) */
+  sluttDato?: string;
+  /** Prosjektbudsjett i NOK */
+  budsjett?: number;
+  status: "aktiv" | "avsluttet" | "på vent";
+  /** Prosjektleder (fritekst) */
+  prosjektleder?: string;
+  /** Farge for visning i UI (hex eller Tailwind-fargenavn) */
+  farge?: string;
+  opprettet: Date;
 };
 
 /** Postering (debet/kredit-linje i et bilag) */

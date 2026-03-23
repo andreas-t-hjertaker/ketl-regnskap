@@ -11,6 +11,7 @@ import {
 } from "@/lib/firebase/firestore";
 import { loggHandling } from "@/lib/audit";
 import { showToast } from "@/lib/toast";
+import { registrerGodkjenning, registrerAvvisning } from "@/lib/ai-feedback";
 import type { Bilag } from "@/types";
 
 export type BilagMedId = Bilag & { id: string };
@@ -188,6 +189,12 @@ export function useBilag(uid: string | null, klientId?: string | null) {
         await loggHandling(uid, "ai_forslag_godkjent", "bilag", id, {
           konfidens: b.aiForslag.konfidens,
         });
+        // Feedback loop (#95): registrer godkjenning for fremtidig læring
+        void registrerGodkjenning(uid, id, b.bilagsnr, b.aiForslag, {
+          leverandor: b.leverandor ?? undefined,
+          beskrivelse: b.beskrivelse,
+          belop: b.belop,
+        });
         showToast.success("Bilag bokført.");
       } catch {
         showToast.error("Klarte ikke bokføre bilag.");
@@ -207,12 +214,20 @@ export function useBilag(uid: string | null, klientId?: string | null) {
       try {
         await updateDocument(path, id, { status: "avvist" });
         await loggHandling(uid, "bilag_avvist", "bilag", id);
+        // Feedback loop (#95): registrer avvisning for fremtidig læring
+        if (b?.aiForslag) {
+          void registrerAvvisning(uid, id, b.bilagsnr, b.aiForslag, {
+            leverandor: b.leverandor ?? undefined,
+            beskrivelse: b.beskrivelse,
+            belop: b.belop,
+          });
+        }
         showToast.success("AI-forslag avvist.");
       } catch {
         showToast.error("Klarte ikke avvise bilag.");
       }
     },
-    [uid, path]
+    [uid, path, bilag]
   );
 
   const getBilagByStatus = useCallback(

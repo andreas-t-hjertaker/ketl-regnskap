@@ -34,6 +34,8 @@ import {
 import { Varsler } from "@/components/varsler";
 import { Fristmonitor } from "@/components/fristmonitor";
 import { InntektKostnadGraf } from "@/components/inntekt-kostnad-graf";
+import { AnomaliWidget } from "@/components/anomali-widget";
+import { useAnomalideteksjon } from "@/hooks/use-anomalideteksjon";
 
 function formatNOK(value: number) {
   return new Intl.NumberFormat("nb-NO", {
@@ -78,6 +80,7 @@ export default function DashboardPage() {
   const inntektKostnad = beregnInntektOgKostnad(bilag);
   const ubehandledeBilag = bilag.filter((b) => b.status === "ubehandlet").slice(0, 5);
   const antallUbehandlet = bilag.filter((b) => b.status === "ubehandlet").length;
+  const anomalier = useAnomalideteksjon(bilag);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -103,6 +106,16 @@ export default function DashboardPage() {
 
       {/* Varsler */}
       {!loading && <Varsler bilag={bilag} />}
+
+      {/* Anomalideteksjon (#38) */}
+      {!loading && anomalier.length > 0 && (
+        <AnomaliWidget
+          anomalier={anomalier}
+          onBilagKlikk={(id) => {
+            window.location.href = `/dashboard/bilag?bilag=${id}`;
+          }}
+        />
+      )}
 
       {/* Fristmonitor */}
       <SlideIn direction="up" delay={0.05}>

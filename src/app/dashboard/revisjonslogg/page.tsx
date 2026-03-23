@@ -45,6 +45,10 @@ const HANDLING_ETIKETT: Record<AuditHandling, { label: string; variant: "default
   motpart_slettet:     { label: "Motpart slettet", variant: "destructive" },
   fil_lastet_opp:      { label: "Fil lastet opp", variant: "secondary" },
   fil_slettet:         { label: "Fil slettet", variant: "destructive" },
+  prosjekt_opprettet:  { label: "Prosjekt opprettet", variant: "default" },
+  prosjekt_oppdatert:  { label: "Prosjekt oppdatert", variant: "secondary" },
+  prosjekt_slettet:    { label: "Prosjekt slettet", variant: "destructive" },
+  ai_auto_bokfort:     { label: "AI auto-bokført", variant: "default" },
 };
 
 function UtfortAvIkon({ utfortAv }: { utfortAv: AuditLogEntry["utfortAv"] }) {
