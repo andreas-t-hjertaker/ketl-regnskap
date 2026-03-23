@@ -33,6 +33,7 @@ import { useMotparter } from "@/hooks/use-motparter";
 import { useReskontro, type ReskontroPoster, type ÅpenPost, type AldersBøtte } from "@/hooks/use-reskontro";
 import { lastNedSaftXml, saftMetadata, genererSaftXml, validerSaftXml, type SaftValideringsFunn } from "@/lib/saft-eksport";
 import { eksporterResultatCsv } from "@/lib/eksport";
+import { byggMvaMelding, lastNedMvaMeldingXml, fmtMvaBeløp, type MvaMelding } from "@/lib/mva-melding";
 
 type Fane = "resultat" | "balanse" | "kontantstrøm" | "mva" | "reskontro" | "saft";
 
@@ -675,10 +676,33 @@ export default function RapporterPage() {
                 <StaggerItem key={termin.periode}>
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-3">
-                      <CardTitle className="text-base">{termin.periode}</CardTitle>
-                      <Badge variant={termin.åBetale <= 0 ? "default" : "outline"}>
-                        {termin.åBetale <= 0 ? "Til gode" : "Utkast"}
-                      </Badge>
+                      <div>
+                        <CardTitle className="text-base">{termin.periode}</CardTitle>
+                        {aktivKlient?.orgnr && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Frist: {byggMvaMelding(termin, aktivKlient).frist}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={termin.åBetale <= 0 ? "default" : "outline"}>
+                          {termin.åBetale <= 0 ? "Til gode" : "Utkast"}
+                        </Badge>
+                        {aktivKlient?.orgnr && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => {
+                              const melding = byggMvaMelding(termin, aktivKlient);
+                              lastNedMvaMeldingXml(melding);
+                            }}
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            RF-0002 XML
+                          </Button>
+                        )}
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="grid gap-3 sm:grid-cols-3">
