@@ -37,6 +37,7 @@ import { InntektKostnadGraf } from "@/components/inntekt-kostnad-graf";
 import { AnomaliWidget } from "@/components/anomali-widget";
 import { useAnomalideteksjon } from "@/hooks/use-anomalideteksjon";
 import { useFaktura } from "@/hooks/use-faktura";
+import Link from "next/link";
 
 function formatNOK(value: number) {
   return new Intl.NumberFormat("nb-NO", {
@@ -376,6 +377,113 @@ export default function DashboardPage() {
           </div>
         </>
       )}
+
+      {/* Faktura-oversikt */}
+      {!loading && fakturaer.length > 0 && (() => {
+        const idag = new Date().toISOString().slice(0, 10);
+        const utestaande = fakturaer.filter(f => f.status === "sendt" || f.status === "forfalt");
+        const forfalte = fakturaer.filter(f => f.status === "forfalt");
+        const betalte = fakturaer.filter(f => f.status === "betalt");
+        const utestaandeBelop = utestaande.reduce((s, f) => s + f.sumInkMva, 0);
+        const forfalteBelop = forfalte.reduce((s, f) => s + f.sumInkMva, 0);
+        const betalteIAar = betalte.filter(f => f.betaltDato?.startsWith(new Date().getFullYear().toString()));
+        const inntektIAar = betalteIAar.reduce((s, f) => s + f.sumInkMva, 0);
+        const urgentForfalte = forfalte
+          .sort((a, b) => a.forfallsDato.localeCompare(b.forfallsDato))
+          .slice(0, 3);
+
+        return (
+          <>
+            <Separator />
+            <div>
+              <SlideIn direction="up" delay={0.1}>
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold">Faktura-oversikt</h2>
+                  <Link href="/dashboard/faktura" className="text-xs text-primary hover:underline underline-offset-4">
+                    Se alle fakturaer →
+                  </Link>
+                </div>
+              </SlideIn>
+
+              <StaggerList className="grid gap-3 sm:grid-cols-3 mb-6" staggerDelay={0.05} initialDelay={0.1}>
+                {[
+                  {
+                    label: "Utestående",
+                    value: utestaandeBelop,
+                    sub: `${utestaande.length} faktura${utestaande.length !== 1 ? "er" : ""}`,
+                    color: "text-blue-500",
+                    format: "nok" as const,
+                  },
+                  {
+                    label: "Forfalt",
+                    value: forfalteBelop,
+                    sub: forfalte.length > 0 ? `${forfalte.length} faktura${forfalte.length !== 1 ? "er" : ""} forfalt` : "Ingen forfalte",
+                    color: forfalte.length > 0 ? "text-red-500" : "text-green-500",
+                    format: "nok" as const,
+                  },
+                  {
+                    label: "Innbetalt i år",
+                    value: inntektIAar,
+                    sub: `${betalteIAar.length} betalt`,
+                    color: "text-green-500",
+                    format: "nok" as const,
+                  },
+                ].map((kpi) => (
+                  <StaggerItem key={kpi.label}>
+                    <Card className="border-border/50 bg-card/50">
+                      <CardHeader className="pb-2">
+                        <CardDescription className="text-xs font-medium uppercase tracking-wide">{kpi.label}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-1">
+                        <p className="text-2xl font-bold">{formatNOK(kpi.value)}</p>
+                        <p className={`text-xs ${kpi.color}`}>{kpi.sub}</p>
+                      </CardContent>
+                    </Card>
+                  </StaggerItem>
+                ))}
+              </StaggerList>
+
+              {urgentForfalte.length > 0 && (
+                <SlideIn direction="up" delay={0.2}>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">Forfalte fakturaer</p>
+                    {urgentForfalte.map((f) => {
+                      const dagerForfall = Math.floor(
+                        (new Date(idag).getTime() - new Date(f.forfallsDato).getTime()) / 86400000
+                      );
+                      return (
+                        <Link
+                          key={f.id}
+                          href="/dashboard/faktura"
+                          className="flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 hover:bg-red-500/10 transition-colors"
+                        >
+                          <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{f.kundeNavn}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {f.fakturanrFormatert} · Forfalt {dagerForfall} dag{dagerForfall !== 1 ? "er" : ""} siden
+                              {f.purring && f.purring.antall > 0 ? ` · ${f.purring.antall}. purring sendt` : ""}
+                            </p>
+                          </div>
+                          <div className="text-sm font-medium shrink-0 text-red-600">{formatNOK(f.sumInkMva)}</div>
+                        </Link>
+                      );
+                    })}
+                    {forfalte.length > 3 && (
+                      <p className="text-xs text-muted-foreground pt-1">
+                        + {forfalte.length - 3} flere forfalte fakturaer.{" "}
+                        <Link href="/dashboard/faktura" className="text-primary hover:underline underline-offset-4">
+                          Se alle →
+                        </Link>
+                      </p>
+                    )}
+                  </div>
+                </SlideIn>
+              )}
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
