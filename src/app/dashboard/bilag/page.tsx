@@ -33,6 +33,7 @@ import {
   ClipboardCheck,
   UserCheck,
   BadgeCheck,
+  FileDown,
 } from "lucide-react";
 import { eksporterBilagCsv, eksporterPosteringerCsv } from "@/lib/eksport";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
@@ -198,6 +199,12 @@ export default function BilagPage() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
+            <Link href="/dashboard/bilag/import">
+              <Button variant="outline" size="sm">
+                <FileDown className="mr-2 h-4 w-4" />
+                <span className="hidden xs:inline">CSV-import</span>
+              </Button>
+            </Link>
             <Link href="/dashboard/bilag/godkjenning">
               <Button variant="outline" size="sm">
                 <ClipboardCheck className="mr-2 h-4 w-4" />
