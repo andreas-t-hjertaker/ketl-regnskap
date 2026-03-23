@@ -152,6 +152,18 @@ export const OPENAPI_SPEC = {
           resultat: { type: "number" },
         },
       },
+      Note: {
+        type: "object",
+        required: ["id", "title", "userId", "createdAt"],
+        properties: {
+          id: { type: "string", example: "abc123" },
+          title: { type: "string", maxLength: 200, example: "Gjennomgang bilag oktober" },
+          content: { type: "string", maxLength: 10000, example: "Alle bilag er kontrollert." },
+          userId: { type: "string", description: "UID til brukeren som eier notatet" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
     },
   },
   paths: {
@@ -584,6 +596,97 @@ export const OPENAPI_SPEC = {
         responses: { "200": { description: "Nøkkel tilbakekalt" } },
       },
     },
+    "/notes": {
+      get: {
+        summary: "List notater",
+        operationId: "listNotes",
+        tags: ["Notater"],
+        security: [{ BearerAuth: [] }],
+        responses: {
+          "200": {
+            description: "Liste over notater",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    data: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Note" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        summary: "Opprett notat",
+        operationId: "createNote",
+        tags: ["Notater"],
+        security: [{ BearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["title"],
+                properties: {
+                  title: { type: "string", minLength: 1, maxLength: 200 },
+                  content: { type: "string", maxLength: 10000 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Notat opprettet", content: { "application/json": { schema: { $ref: "#/components/schemas/Note" } } } },
+        },
+      },
+    },
+    "/notes/{id}": {
+      patch: {
+        summary: "Oppdater notat",
+        operationId: "updateNote",
+        tags: ["Notater"],
+        security: [{ BearerAuth: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  title: { type: "string", minLength: 1, maxLength: 200 },
+                  content: { type: "string", maxLength: 10000 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Notat oppdatert", content: { "application/json": { schema: { $ref: "#/components/schemas/Note" } } } },
+          "403": { description: "Ikke tilgang til dette notatet" },
+          "404": { description: "Notat ikke funnet" },
+        },
+      },
+      delete: {
+        summary: "Slett notat",
+        operationId: "deleteNote",
+        tags: ["Notater"],
+        security: [{ BearerAuth: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": { description: "Notat slettet" },
+          "403": { description: "Ikke tilgang til dette notatet" },
+          "404": { description: "Notat ikke funnet" },
+        },
+      },
+    },
   },
   tags: [
     { name: "Status", description: "API-helse og versjonsinformasjon" },
@@ -593,6 +696,7 @@ export const OPENAPI_SPEC = {
     { name: "Rapporter", description: "Resultatregnskap, balanse og MVA" },
     { name: "Motparter", description: "Kunder og leverandører (SAF-T debitor/kreditor)" },
     { name: "API-nøkler", description: "Administrasjon av API-nøkler" },
+    { name: "Notater", description: "Interne notater per bruker" },
   ],
 };
 
