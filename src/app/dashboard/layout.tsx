@@ -18,6 +18,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { AiAssistant } from "@/modules/ai-assistant";
 import { OnboardingStepper } from "@/components/onboarding-stepper";
 import { PageTransition } from "@/components/motion";
+import { OfflineBanner } from "@/components/offline-banner";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -35,6 +36,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
   return (
     <AktivKlientProvider klienter={klienter}>
+      <OfflineBanner />
       <div className="flex h-screen overflow-hidden">
         <Sidebar />
         <div className="flex flex-1 flex-col overflow-hidden">
