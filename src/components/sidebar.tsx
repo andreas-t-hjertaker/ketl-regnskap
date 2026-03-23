@@ -42,6 +42,7 @@ import {
   FolderOpen,
   FileSpreadsheet,
   CalendarDays,
+  Activity,
 } from "lucide-react";
 import { useAdmin } from "@/hooks/use-admin";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
@@ -54,6 +55,7 @@ const navItems = [
   { href: "/dashboard/klienter", label: "Klienter", icon: Building2 },
   { href: "/dashboard/motparter", label: "Motparter", icon: Users },
   { href: "/dashboard/rapporter", label: "Rapporter", icon: BarChart3 },
+  { href: "/dashboard/sanntid", label: "Sanntid", icon: Activity },
   { href: "/dashboard/budsjett", label: "Budsjett", icon: PieChart },
   { href: "/dashboard/cashflow", label: "Cashflow", icon: Banknote },
   { href: "/dashboard/prosjekter", label: "Prosjekter", icon: FolderOpen },
