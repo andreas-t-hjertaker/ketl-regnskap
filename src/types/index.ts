@@ -214,6 +214,25 @@ export type MånedRapport = {
   ubehandlede: number;
 };
 
+/** Budsjettlinje per konto */
+export type BudsjettLinje = {
+  kontonr: string;
+  kontonavn: string;
+  /** Årsbudsjett i NOK */
+  årsbudsjett: number;
+  /** Månedlige budsjett, indeks 0=jan … 11=des. Tomt betyr jevn fordeling */
+  måneder?: number[];
+};
+
+/** Årsbudsjett for en klient */
+export type Budsjett = {
+  år: number;
+  klientId: string;
+  linjer: BudsjettLinje[];
+  opprettet: Date;
+  oppdatert: Date;
+};
+
 /** Aktivitetslogg for agenten */
 export type AgentAktivitet = {
   type: "bokføring" | "forslag" | "rapport" | "epost" | "avstemming";
