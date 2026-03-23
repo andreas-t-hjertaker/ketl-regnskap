@@ -36,6 +36,7 @@ import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { AiForklaring } from "@/components/ai-forklaring";
 import { useAuth } from "@/hooks/use-auth";
 import { useBilag, type BilagMedId } from "@/hooks/use-bilag";
+import { usePaginertBilag } from "@/hooks/use-paginert-bilag";
 import { useBilagUpload } from "@/hooks/use-bilag-upload";
 import { useMotparter } from "@/hooks/use-motparter";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
@@ -82,31 +83,46 @@ function formatNOK(value: number) {
 export default function BilagPage() {
   const { user } = useAuth();
   const { aktivKlientId } = useAktivKlient();
-  const { bilag, loading, updateBilag, deleteBilag, bokforBilag, godkjennBilag, avvisBilag, krediterBilag } = useBilag(user?.uid ?? null, aktivKlientId);
+  // Mutations + selectedBilag (real-time for AI-analyse updates)
+  const { bilag: alleBilag, loading: loadingAlle, updateBilag, deleteBilag, bokforBilag, godkjennBilag, avvisBilag, krediterBilag } = useBilag(user?.uid ?? null, aktivKlientId);
   const { motparter } = useMotparter(user?.uid ?? null);
   const { uploadFlere, lasterOpp, fremdrift } = useBilagUpload(user?.uid ?? null, aktivKlientId);
   const [dragOver, setDragOver] = useState(false);
   const [selectedBilagId, setSelectedBilagId] = useState<string | null>(null);
   // Alltid avlest fra live bilag-array så detaljer er oppdaterte (f.eks. etter AI-analyse)
-  const selectedBilag = selectedBilagId ? (bilag.find((b) => b.id === selectedBilagId) ?? null) : null;
+  const selectedBilag = selectedBilagId ? (alleBilag.find((b) => b.id === selectedBilagId) ?? null) : null;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const antallUbehandlet = bilag.filter((b) => b.status === "ubehandlet").length;
-  const antallForeslått = bilag.filter((b) => b.status === "foreslått").length;
+  const antallUbehandlet = alleBilag.filter((b) => b.status === "ubehandlet").length;
+  const antallForeslått = alleBilag.filter((b) => b.status === "foreslått").length;
 
   // ── Filtrering ──────────────────────────────────────────────────────────────
   const [filterStatus, setFilterStatus] = useState<Bilag["status"] | "alle">("alle");
   const [filterFra, setFilterFra] = useState("");
   const [filterTil, setFilterTil] = useState("");
 
+  // Cursor-basert paginering for tabellen (#105)
+  const {
+    bilag: paginertBilag,
+    loading: loadingPaginert,
+    hasMore,
+    nesteSide,
+  } = usePaginertBilag(user?.uid ?? null, {
+    klientId: aktivKlientId ?? undefined,
+    status: filterStatus !== "alle" ? filterStatus : undefined,
+  });
+
+  const loading = loadingAlle && loadingPaginert;
+
+  // Dato-filter kjøres lokalt mot allerede lastede sider
   const filtrerteBilag = useMemo(() => {
-    return bilag.filter((b) => {
-      if (filterStatus !== "alle" && b.status !== filterStatus) return false;
+    if (!filterFra && !filterTil) return paginertBilag;
+    return paginertBilag.filter((b) => {
       if (filterFra && b.dato < filterFra) return false;
       if (filterTil && b.dato > filterTil) return false;
       return true;
     });
-  }, [bilag, filterStatus, filterFra, filterTil]);
+  }, [paginertBilag, filterFra, filterTil]);
 
   const harAktiveFiltre = filterStatus !== "alle" || filterFra !== "" || filterTil !== "";
 
@@ -214,10 +230,10 @@ export default function BilagPage() {
       ) : (
         <StaggerList className="grid gap-4 sm:grid-cols-4" staggerDelay={0.06}>
           {[
-            { label: "Totalt", value: bilag.length, icon: Receipt, color: "text-foreground" },
+            { label: "Totalt", value: alleBilag.length, icon: Receipt, color: "text-foreground" },
             { label: "Ubehandlet", value: antallUbehandlet, icon: AlertCircle, color: "text-orange-500" },
             { label: "AI-forslag", value: antallForeslått, icon: Bot, color: "text-blue-500" },
-            { label: "Bokført", value: bilag.filter(b => b.status === "bokført").length, icon: CheckCircle2, color: "text-green-500" },
+            { label: "Bokført", value: alleBilag.filter(b => b.status === "bokført").length, icon: CheckCircle2, color: "text-green-500" },
           ].map((stat) => (
             <StaggerItem key={stat.label}>
               <Card>
@@ -498,7 +514,7 @@ export default function BilagPage() {
       )}
 
       {/* Filter-panel */}
-      {!loading && bilag.length > 0 && (
+      {!loading && alleBilag.length > 0 && (
         <SlideIn direction="up" delay={0.17}>
           <Card className="border-border/40">
             <CardContent className="pt-4 pb-4">
@@ -560,7 +576,7 @@ export default function BilagPage() {
 
                 {harAktiveFiltre && (
                   <p className="text-xs text-muted-foreground self-end pb-0.5">
-                    Viser {filtrerteBilag.length} av {bilag.length} bilag
+                    Viser {filtrerteBilag.length} av {alleBilag.length} bilag
                   </p>
                 )}
               </div>
@@ -570,7 +586,7 @@ export default function BilagPage() {
       )}
 
       {/* Eksport */}
-      {!loading && bilag.length > 0 && (
+      {!loading && alleBilag.length > 0 && (
         <SlideIn direction="up" delay={0.18}>
           <div className="flex gap-2 justify-end">
             <Button
@@ -595,7 +611,7 @@ export default function BilagPage() {
 
       {/* DataTable */}
       <SlideIn direction="up" delay={0.2}>
-        {loading ? (
+        {loadingPaginert && paginertBilag.length === 0 ? (
           <Card>
             <CardContent className="p-6 space-y-3">
               {[1, 2, 3, 4, 5].map((i) => (
@@ -603,41 +619,59 @@ export default function BilagPage() {
               ))}
             </CardContent>
           </Card>
-        ) : bilag.length === 0 ? (
+        ) : alleBilag.length === 0 ? (
           <div className="rounded-xl border border-border/40 py-16 text-center text-muted-foreground">
             <Receipt className="mx-auto mb-3 h-8 w-8 opacity-40" />
             <p className="text-sm font-medium">Ingen bilag ennå</p>
             <p className="text-xs mt-1">Last opp en kvittering eller faktura for å komme i gang.</p>
           </div>
         ) : (
-          <DataTable
-            data={tableData}
-            columns={[
-              ...columns,
-              {
-                key: "id",
-                header: "",
-                sortable: false,
-                render: (value) => {
-                  const b = bilag.find((x) => x.id === value);
-                  if (!b) return null;
-                  return (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedBilagId(b.id)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  );
+          <>
+            <DataTable
+              data={tableData}
+              columns={[
+                ...columns,
+                {
+                  key: "id",
+                  header: "",
+                  sortable: false,
+                  render: (value) => {
+                    const b = alleBilag.find((x) => x.id === value);
+                    if (!b) return null;
+                    return (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedBilagId(b.id)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    );
+                  },
                 },
-              },
-            ]}
-            searchable
-            searchKeys={["beskrivelse", "leverandor", "bilagsnr", "kategori"]}
-            searchPlaceholder="Søk på beskrivelse, leverandør, bilagsnr…"
-            pageSize={8}
-          />
+              ]}
+              searchable
+              searchKeys={["beskrivelse", "leverandor", "bilagsnr", "kategori"]}
+              searchPlaceholder="Søk på beskrivelse, leverandør, bilagsnr…"
+              pageSize={50}
+            />
+            {/* Hent neste side (#105) */}
+            {hasMore && (
+              <div className="mt-4 flex items-center justify-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={nesteSide}
+                  disabled={loadingPaginert}
+                >
+                  {loadingPaginert ? "Laster…" : "Hent flere bilag"}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  {paginertBilag.length} bilag lastet
+                </p>
+              </div>
+            )}
+          </>
         )}
       </SlideIn>
     </div>

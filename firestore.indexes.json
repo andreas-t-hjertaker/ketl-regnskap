@@ -57,6 +57,49 @@
         { "fieldPath": "entitetType", "order": "ASCENDING" },
         { "fieldPath": "tidspunkt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "bilag",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "klientId", "order": "ASCENDING" },
+        { "fieldPath": "leverandor", "order": "ASCENDING" },
+        { "fieldPath": "dato", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bilag",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "prosjektId", "order": "ASCENDING" },
+        { "fieldPath": "dato", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "ansatte",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "klientId", "order": "ASCENDING" },
+        { "fieldPath": "aktiv", "order": "ASCENDING" },
+        { "fieldPath": "navn", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "lonnsutbetalinger",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "klientId", "order": "ASCENDING" },
+        { "fieldPath": "kalendermaaned", "order": "ASCENDING" },
+        { "fieldPath": "utbetaltDato", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "amelding_innsendinger",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "klientId", "order": "ASCENDING" },
+        { "fieldPath": "sendtTidspunkt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
