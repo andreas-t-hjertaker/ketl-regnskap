@@ -30,6 +30,8 @@ import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
 import { useMotparter } from "@/hooks/use-motparter";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
+import { useBrreg } from "@/hooks/use-brreg";
+import { Loader2, CheckCircle2, AlertCircle as AlertCircleIcon } from "lucide-react";
 import type { Motpart } from "@/types";
 
 type Fane = "kunder" | "leverandorer";
@@ -58,6 +60,16 @@ function OpprettSkjema({
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [lagrer, setLagrer] = useState(false);
+  const [orgnr, setOrgnr] = useState("");
+  const [navn, setNavn] = useState("");
+  const [adresse, setAdresse] = useState("");
+  const { status: brregStatus, data: brregData } = useBrreg(orgnr);
+
+  // Auto-fyll navn og adresse fra Brreg når enhet er funnet
+  if (brregStatus === "funnet" && brregData) {
+    if (!navn && brregData.navn) setNavn(brregData.navn);
+    if (!adresse && brregData.adresse) setAdresse(brregData.adresse);
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -66,7 +78,7 @@ function OpprettSkjema({
       type,
       klientId,
       navn: fd.get("navn") as string,
-      orgnr: (fd.get("orgnr") as string) || undefined,
+      orgnr: orgnr.replace(/\s/g, "") || undefined,
       kontaktperson: (fd.get("kontaktperson") as string) || undefined,
       epost: (fd.get("epost") as string) || undefined,
       telefon: (fd.get("telefon") as string) || undefined,
@@ -77,21 +89,60 @@ function OpprettSkjema({
     setLagrer(false);
     if (id) {
       formRef.current?.reset();
+      setOrgnr("");
+      setNavn("");
+      setAdresse("");
       onLagret();
     }
   }
 
   const typeNavn = type === "kunde" ? "Kunde" : "Leverandør";
 
+  const brregMelding = (() => {
+    if (brregStatus === "loading") return { ikon: <Loader2 className="h-3.5 w-3.5 animate-spin" />, tekst: "Slår opp…", farge: "text-muted-foreground" };
+    if (brregStatus === "funnet") return { ikon: <CheckCircle2 className="h-3.5 w-3.5" />, tekst: `Funnet: ${brregData?.enhet.navn}`, farge: "text-green-600" };
+    if (brregStatus === "ikke_funnet") return { ikon: <AlertCircleIcon className="h-3.5 w-3.5" />, tekst: "Org.nr ikke funnet i Brønnøysundregistrene", farge: "text-amber-600" };
+    if (brregStatus === "nettverksfeil") return { ikon: <AlertCircleIcon className="h-3.5 w-3.5" />, tekst: "Kunne ikke kontakte Brønnøysundregistrene", farge: "text-amber-600" };
+    return null;
+  })();
+
   return (
     <form ref={formRef} className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>
       <div className="space-y-2">
-        <Label htmlFor="navn">Navn *</Label>
-        <Input id="navn" name="navn" placeholder={`${typeNavn}navn`} required />
+        <Label htmlFor="orgnr">Org.nr</Label>
+        <Input
+          id="orgnr"
+          name="orgnr"
+          placeholder="123 456 789"
+          value={orgnr}
+          onChange={(e) => {
+            setOrgnr(e.target.value);
+            setNavn("");
+            setAdresse("");
+          }}
+        />
+        {brregMelding && (
+          <p className={`flex items-center gap-1 text-xs ${brregMelding.farge}`}>
+            {brregMelding.ikon}
+            {brregMelding.tekst}
+          </p>
+        )}
       </div>
       <div className="space-y-2">
-        <Label htmlFor="orgnr">Org.nr</Label>
-        <Input id="orgnr" name="orgnr" placeholder="123 456 789" />
+        <Label htmlFor="navn">
+          Navn *
+          {brregStatus === "funnet" && (
+            <span className="ml-2 text-xs font-normal text-green-600">autofylt</span>
+          )}
+        </Label>
+        <Input
+          id="navn"
+          name="navn"
+          placeholder={`${typeNavn}navn`}
+          required
+          value={navn}
+          onChange={(e) => setNavn(e.target.value)}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="kontaktperson">Kontaktperson</Label>
@@ -106,8 +157,19 @@ function OpprettSkjema({
         <Input id="telefon" name="telefon" placeholder="+47 900 00 000" />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="adresse">Adresse</Label>
-        <Input id="adresse" name="adresse" placeholder="Gateveien 1, 0001 Oslo" />
+        <Label htmlFor="adresse">
+          Adresse
+          {brregStatus === "funnet" && adresse && (
+            <span className="ml-2 text-xs font-normal text-green-600">autofylt</span>
+          )}
+        </Label>
+        <Input
+          id="adresse"
+          name="adresse"
+          placeholder="Gateveien 1, 0001 Oslo"
+          value={adresse}
+          onChange={(e) => setAdresse(e.target.value)}
+        />
       </div>
       <div className="sm:col-span-2 flex gap-2">
         <Button type="submit" disabled={lagrer}>
