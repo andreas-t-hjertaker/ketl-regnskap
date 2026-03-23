@@ -61,6 +61,7 @@ const navItems = [
   { href: "/dashboard/amelding", label: "A-melding", icon: FileSpreadsheet },
   { href: "/dashboard/aarsoppgjor", label: "Årsoppgjør", icon: BookOpenCheck },
   { href: "/dashboard/kontoplan", label: "Kontoplan", icon: BookMarked },
+  { href: "/dashboard/hovedbok", label: "Hovedbok", icon: BookMarked },
   { href: "/dashboard/notater", label: "Notater", icon: StickyNote },
   { href: "/dashboard/revisjonslogg", label: "Revisjonslogg", icon: ScrollText },
   { href: "/dashboard/abonnement", label: "Abonnement", icon: CreditCard },
