@@ -63,7 +63,7 @@ function NyKontoSkjema({
   const [type, setType] = useState<Konto["type"]>("kostnad");
   const [lagrer, setLagrer] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: { preventDefault: () => void }) {
     e.preventDefault();
     if (!nummer || !navn) return;
     setLagrer(true);
@@ -166,7 +166,7 @@ export default function KontoplanPage() {
     return map;
   }, [filtrerte]);
 
-  const klasser = [...new Set(kontoplan.map((k) => k.nummer[0]))].sort();
+  const klasser: string[] = [...new Set(kontoplan.map((k: KontoMedStatus) => k.nummer[0]))].sort();
   const antallDeaktivert = kontoplan.filter((k) => k.erDeaktivert).length;
   const antallCustom = kontoplan.filter((k) => k.erCustom).length;
 
@@ -328,7 +328,7 @@ export default function KontoplanPage() {
               <CardContent className="p-0">
                 <table className="w-full text-sm">
                   <tbody>
-                    {kontoer.map((k, ki) => (
+                    {kontoer.map((k: KontoMedStatus, ki: number) => (
                       <tr
                         key={k.nummer}
                         className={`${ki < kontoer.length - 1 ? "border-b border-border/20" : ""} hover:bg-accent/30 transition-colors ${k.erDeaktivert ? "opacity-40" : ""}`}
