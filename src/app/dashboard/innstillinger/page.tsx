@@ -17,6 +17,7 @@ import {
   type TotpSecret,
 } from "firebase/auth";
 import { useAuth } from "@/hooks/use-auth";
+import { useAiInnstillinger } from "@/hooks/use-ai-innstillinger";
 import { uploadFile } from "@/lib/firebase/storage";
 import { apiDelete } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { showToast } from "@/lib/toast";
-import { Loader2, Upload, Lock, Link2, Unlink, Trash2, ShieldCheck, ShieldOff, KeyRound } from "lucide-react";
+import { Loader2, Upload, Lock, Link2, Unlink, Trash2, ShieldCheck, ShieldOff, KeyRound, Bot, Gauge, X } from "lucide-react";
 
 // ─── Profil-skjema ──────────────────────────────────────────
 const profileSchema = z.object({
@@ -79,6 +80,10 @@ export default function InnstillingerPage() {
   const [totpKode, setTotpKode] = useState("");
   const [totpNavn, setTotpNavn] = useState("Ketl Regnskap");
   const [totpLaster, setTotpLaster] = useState(false);
+
+  // ─── AI-innstillinger ─────────────────────────────────────
+  const { innstillinger: aiInnstillinger, oppdater: oppdaterAi } = useAiInnstillinger(user?.uid ?? null);
+  const [nyKritiskKonto, setNyKritiskKonto] = useState("");
 
   const hasPasswordProvider = firebaseUser?.providerData.some(
     (p) => p.providerId === "password"
@@ -628,6 +633,149 @@ export default function InnstillingerPage() {
                   onClick={() => setTotpSteg("setup")}
                 >
                   Tilbake
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* AI-konfidensterskel (#94) */}
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bot className="h-5 w-5" />
+            AI-innstillinger
+          </CardTitle>
+          <CardDescription>
+            Kontroller når AI-forslag auto-bokføres vs. sendes til manuell review.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Review all toggle */}
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">Manuell review for alt</p>
+              <p className="text-xs text-muted-foreground">
+                Når aktivert sendes ALLE AI-forslag til manuell review, uansett konfidens.
+              </p>
+            </div>
+            <Button
+              variant={aiInnstillinger.reviewAll ? "default" : "outline"}
+              size="sm"
+              onClick={() => oppdaterAi({ reviewAll: !aiInnstillinger.reviewAll })}
+            >
+              {aiInnstillinger.reviewAll ? "På" : "Av"}
+            </Button>
+          </div>
+
+          {/* Konfidensterskel slider */}
+          {!aiInnstillinger.reviewAll && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Gauge className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm font-medium">Konfidensterskel</p>
+                </div>
+                <Badge variant="outline" className="font-mono text-sm">
+                  {aiInnstillinger.konfidensterskel}%
+                </Badge>
+              </div>
+              <input
+                type="range"
+                min={50}
+                max={100}
+                step={5}
+                value={aiInnstillinger.konfidensterskel}
+                onChange={(e) =>
+                  oppdaterAi({ konfidensterskel: Number(e.target.value) })
+                }
+                className="w-full accent-primary"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>50% — aggressiv</span>
+                <span>75% — balansert</span>
+                <span>100% — konservativ</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Forslag med konfidens <span className="font-mono font-medium text-foreground">&ge; {aiInnstillinger.konfidensterskel}%</span> auto-bokføres.
+                Under terskelen sendes til manuell review.
+              </p>
+            </div>
+          )}
+
+          {/* Maks auto-beløp */}
+          {!aiInnstillinger.reviewAll && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Maks auto-bokføringsbeløp (NOK)</p>
+              <p className="text-xs text-muted-foreground">
+                Bilag over dette beløpet krever alltid manuell godkjenning. Sett til 0 for ingen grense.
+              </p>
+              <Input
+                type="number"
+                className="max-w-[200px] font-mono"
+                value={aiInnstillinger.maxAutoBeløp}
+                onChange={(e) =>
+                  oppdaterAi({ maxAutoBeløp: Number(e.target.value) || 0 })
+                }
+                min={0}
+                step={1000}
+              />
+            </div>
+          )}
+
+          {/* Kritiske kontoer */}
+          {!aiInnstillinger.reviewAll && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Kritiske kontoer (alltid manuell review)</p>
+              <p className="text-xs text-muted-foreground">
+                Kontoer som aldri auto-bokføres, uavhengig av konfidens.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {aiInnstillinger.kritiskeKontoer.map((konto) => (
+                  <Badge key={konto} variant="secondary" className="font-mono text-xs gap-1">
+                    {konto}
+                    <button
+                      className="ml-0.5 hover:text-destructive"
+                      onClick={() =>
+                        oppdaterAi({
+                          kritiskeKontoer: aiInnstillinger.kritiskeKontoer.filter(
+                            (k) => k !== konto
+                          ),
+                        })
+                      }
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={nyKritiskKonto}
+                  onChange={(e) => setNyKritiskKonto(e.target.value)}
+                  placeholder="Kontonr, f.eks. 2400"
+                  className="max-w-[180px] text-sm font-mono"
+                  maxLength={8}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    !nyKritiskKonto.trim() ||
+                    aiInnstillinger.kritiskeKontoer.includes(nyKritiskKonto.trim())
+                  }
+                  onClick={() => {
+                    const konto = nyKritiskKonto.trim();
+                    if (konto && !aiInnstillinger.kritiskeKontoer.includes(konto)) {
+                      oppdaterAi({
+                        kritiskeKontoer: [...aiInnstillinger.kritiskeKontoer, konto],
+                      });
+                      setNyKritiskKonto("");
+                    }
+                  }}
+                >
+                  Legg til
                 </Button>
               </div>
             </div>
