@@ -19,6 +19,7 @@ import { AiAssistant } from "@/modules/ai-assistant";
 import { OnboardingStepper } from "@/components/onboarding-stepper";
 import { PageTransition } from "@/components/motion";
 import { OfflineBanner } from "@/components/offline-banner";
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -79,7 +80,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           </header>
 
           {/* Hovedinnhold */}
-          <main className="flex-1 overflow-y-auto p-6">
+          <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-20 md:pb-6">
             <PageTransition>{children}</PageTransition>
           </main>
         </div>
@@ -97,6 +98,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           })}
         />
         <OnboardingStepper />
+        <MobileBottomNav />
       </div>
     </AktivKlientProvider>
   );

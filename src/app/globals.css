@@ -137,3 +137,16 @@
 @utility animate-shimmer {
   animation: shimmer 1.5s infinite;
 }
+
+/* iPhone safe-area for bottom nav */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Touch-friendly tap targets */
+@media (pointer: coarse) {
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

@@ -80,11 +80,11 @@ export default function DashboardPage() {
   const antallUbehandlet = bilag.filter((b) => b.status === "ubehandlet").length;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Velkomsthilsen */}
       <SlideIn direction="up" duration={0.4}>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
             {(() => {
               const timer = new Date().getHours();
               if (timer < 12) return "God morgen";
