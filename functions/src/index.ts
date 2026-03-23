@@ -41,6 +41,7 @@ const bilagSchema = z.object({
   leverandor: z.string().optional(),
   kategori: z.string().optional(),
   motpartId: z.string().optional(),
+  forfallsDato: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Forfallsdato må være YYYY-MM-DD").optional(),
   posteringer: z.array(posteringSchema).min(1),
 }).refine(
   (data) => {
@@ -51,9 +52,26 @@ const bilagSchema = z.object({
   { message: "Posteringene er ikke balansert: debet må være lik kredit" }
 );
 
+/**
+ * Modulus-11-sjekk for norske organisasjonsnumre (9 siffer, iht. NS 11028).
+ * Vektene er [3, 2, 7, 6, 5, 4, 3, 2], kontrollsifferet er siste siffer.
+ */
+function erGyldigOrgnr(orgnr: string): boolean {
+  if (!/^\d{9}$/.test(orgnr)) return false;
+  const vekter = [3, 2, 7, 6, 5, 4, 3, 2];
+  const sum = vekter.reduce((acc, v, i) => acc + v * parseInt(orgnr[i], 10), 0);
+  const kontroll = 11 - (sum % 11);
+  if (kontroll === 11) return parseInt(orgnr[8], 10) === 0;
+  if (kontroll === 10) return false; // Ugyldig
+  return parseInt(orgnr[8], 10) === kontroll;
+}
+
 const klientSchema = z.object({
   navn: z.string().min(1).max(200),
-  orgnr: z.string().regex(/^\d{9}$/, "Organisasjonsnummer må ha 9 siffer"),
+  orgnr: z.string().regex(/^\d{9}$/, "Organisasjonsnummer må ha 9 siffer").refine(
+    erGyldigOrgnr,
+    "Ugyldig organisasjonsnummer (Modulus-11-sjekk feilet)"
+  ),
   kontaktperson: z.string().min(1).max(200),
   epost: z.string().email(),
   telefon: z.string().optional(),
