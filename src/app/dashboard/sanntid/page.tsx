@@ -25,6 +25,7 @@ import {
   RefreshCw,
   BarChart3,
   Zap,
+  FilePlus,
 } from "lucide-react";
 import {
   Card,
@@ -39,6 +40,7 @@ import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
 import { useRapporter } from "@/hooks/use-rapporter";
+import { useFaktura } from "@/hooks/use-faktura";
 
 function formatNOK(v: number) {
   return new Intl.NumberFormat("nb-NO", {
@@ -100,6 +102,7 @@ export default function SanntidPage() {
     user?.uid ?? null,
     aktivKlientId
   );
+  const { fakturaer, utestående, forfalte } = useFaktura(user?.uid ?? null, aktivKlientId);
 
   const [sistOppdatert, setSistOppdatert] = useState<Date>(new Date());
   const [klokkeTekst, setKlokkeTekst] = useState("");
@@ -418,6 +421,43 @@ export default function SanntidPage() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </SlideIn>
+
+          {/* Faktura-status */}
+          <SlideIn direction="up" delay={0.16}>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <FilePlus className="h-4 w-4 text-blue-500" />
+                  Faktura — live status
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <Skeleton className="h-20" />
+                ) : fakturaer.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Ingen fakturaer ennå.</p>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2 text-center">
+                      <div className="rounded-md bg-muted/30 p-2">
+                        <p className="text-xs text-muted-foreground">Utestående</p>
+                        <p className="text-sm font-bold text-blue-600">{formatNOK(utestående)}</p>
+                      </div>
+                      <div className={`rounded-md p-2 ${forfalte.length > 0 ? "bg-red-500/10" : "bg-muted/30"}`}>
+                        <p className="text-xs text-muted-foreground">Forfalte</p>
+                        <p className={`text-sm font-bold ${forfalte.length > 0 ? "text-red-600" : "text-muted-foreground"}`}>
+                          {forfalte.length} stk
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground text-center">
+                      {fakturaer.length} fakturaer totalt · {fakturaer.filter(f => f.status === "betalt").length} betalt
+                    </p>
                   </div>
                 )}
               </CardContent>
