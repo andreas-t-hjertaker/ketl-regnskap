@@ -12,6 +12,9 @@ import {
   linkWithPopup,
   unlink,
   GoogleAuthProvider,
+  multiFactor,
+  TotpMultiFactorGenerator,
+  type TotpSecret,
 } from "firebase/auth";
 import { useAuth } from "@/hooks/use-auth";
 import { uploadFile } from "@/lib/firebase/storage";
@@ -36,7 +39,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { showToast } from "@/lib/toast";
-import { Loader2, Upload, Lock, Link2, Unlink, Trash2 } from "lucide-react";
+import { Loader2, Upload, Lock, Link2, Unlink, Trash2, ShieldCheck, ShieldOff, KeyRound } from "lucide-react";
 
 // ─── Profil-skjema ──────────────────────────────────────────
 const profileSchema = z.object({
@@ -70,12 +73,22 @@ export default function InnstillingerPage() {
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ─── 2FA-tilstand ───────────────────────────────────────────
+  const [totpSteg, setTotpSteg] = useState<"idle" | "setup" | "verify">("idle");
+  const [totpSecret, setTotpSecret] = useState<TotpSecret | null>(null);
+  const [totpKode, setTotpKode] = useState("");
+  const [totpNavn, setTotpNavn] = useState("Ketl Regnskap");
+  const [totpLaster, setTotpLaster] = useState(false);
+
   const hasPasswordProvider = firebaseUser?.providerData.some(
     (p) => p.providerId === "password"
   );
   const hasGoogleProvider = firebaseUser?.providerData.some(
     (p) => p.providerId === "google.com"
   );
+
+  const mfaInfo = firebaseUser ? multiFactor(firebaseUser).enrolledFactors : [];
+  const harTotp = mfaInfo.some((f) => f.factorId === "totp");
 
   // ─── Profil ─────────────────────────────────────────────
   const profileForm = useForm<ProfileFormValues>({
@@ -184,6 +197,62 @@ export default function InnstillingerPage() {
       );
     }
     setDeleting(false);
+  }
+
+  // ─── 2FA-funksjoner ─────────────────────────────────────────
+  async function startTotpSetup() {
+    if (!firebaseUser) return;
+    setTotpLaster(true);
+    try {
+      const session = await multiFactor(firebaseUser).getSession();
+      const secret = await TotpMultiFactorGenerator.generateSecret(session);
+      setTotpSecret(secret);
+      setTotpSteg("setup");
+    } catch {
+      showToast.error("Kunne ikke starte 2FA-oppsett");
+    }
+    setTotpLaster(false);
+  }
+
+  async function bekreftTotp() {
+    if (!firebaseUser || !totpSecret || totpKode.length !== 6) return;
+    setTotpLaster(true);
+    try {
+      const assertion = TotpMultiFactorGenerator.assertionForEnrollment(
+        totpSecret,
+        totpKode
+      );
+      await multiFactor(firebaseUser).enroll(assertion, totpNavn);
+      showToast.success("Tofaktorautentisering aktivert!");
+      setTotpSteg("idle");
+      setTotpSecret(null);
+      setTotpKode("");
+    } catch {
+      showToast.error("Ugyldig kode. Prøv igjen.");
+    }
+    setTotpLaster(false);
+  }
+
+  async function deaktiverTotp() {
+    if (!firebaseUser) return;
+    const faktor = mfaInfo.find((f) => f.factorId === "totp");
+    if (!faktor) return;
+    setTotpLaster(true);
+    try {
+      await multiFactor(firebaseUser).unenroll(faktor);
+      showToast.success("Tofaktorautentisering deaktivert");
+    } catch {
+      showToast.error("Kunne ikke deaktivere 2FA. Re-autentiser og prøv igjen.");
+    }
+    setTotpLaster(false);
+  }
+
+  function totpQrUrl() {
+    if (!totpSecret || !firebaseUser?.email) return "";
+    return totpSecret.generateQrCodeUrl(
+      firebaseUser.email,
+      totpNavn
+    );
   }
 
   const initials = user?.displayName
@@ -402,6 +471,167 @@ export default function InnstillingerPage() {
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* 2FA-kort */}
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5" />
+            Tofaktorautentisering (2FA)
+          </CardTitle>
+          <CardDescription>
+            Beskytt kontoen din med en ekstra verifiseringskode via en autentiseringsapp
+            (Google Authenticator, Aegis, Authy o.l.).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {harTotp ? (
+            // ── Aktivert ──
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 rounded-lg border border-green-300 bg-green-50 dark:bg-green-950/20 dark:border-green-800 p-3">
+                <ShieldCheck className="h-5 w-5 text-green-600 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                    2FA er aktivert
+                  </p>
+                  <p className="text-xs text-green-600 dark:text-green-500">
+                    Kontoen din er beskyttet med TOTP-autentisering.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={deaktiverTotp}
+                disabled={totpLaster}
+                className="text-destructive border-destructive/40 hover:bg-destructive/10"
+              >
+                {totpLaster ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <ShieldOff className="mr-2 h-4 w-4" />
+                )}
+                Deaktiver 2FA
+              </Button>
+            </div>
+          ) : totpSteg === "idle" ? (
+            // ── Ikke aktivert ──
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 rounded-lg border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-800 p-3">
+                <ShieldOff className="h-5 w-5 text-yellow-600 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                    2FA er ikke aktivert
+                  </p>
+                  <p className="text-xs text-yellow-600 dark:text-yellow-500">
+                    Vi anbefaler sterkt å aktivere tofaktorautentisering.
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={startTotpSetup}
+                disabled={totpLaster}
+              >
+                {totpLaster ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                )}
+                Aktiver 2FA
+              </Button>
+            </div>
+          ) : totpSteg === "setup" && totpSecret ? (
+            // ── Oppsett: vis QR-kode ──
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Skann QR-koden med autentiseringsappen din, eller skriv inn hemmelig nøkkel manuelt.
+              </p>
+
+              {/* QR-kode via Google Charts API (offentlig, ingen autentisering) */}
+              <div className="flex justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://chart.googleapis.com/chart?chs=200x200&chld=M|0&cht=qr&chl=${encodeURIComponent(totpQrUrl())}`}
+                  alt="QR-kode for 2FA"
+                  width={200}
+                  height={200}
+                  className="rounded-lg border p-2 bg-white"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Hemmelig nøkkel (manuell innlegging):</p>
+                <code className="block rounded bg-muted px-3 py-2 text-xs font-mono break-all select-all">
+                  {totpSecret.secretKey}
+                </code>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Navn på enheten (valgfritt)</label>
+                <Input
+                  value={totpNavn}
+                  onChange={(e) => setTotpNavn(e.target.value)}
+                  placeholder="Min autentiseringsapp"
+                  className="text-sm"
+                />
+              </div>
+
+              <Button
+                size="sm"
+                onClick={() => setTotpSteg("verify")}
+              >
+                <KeyRound className="mr-2 h-4 w-4" />
+                Fortsett — skriv inn kode
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setTotpSteg("idle"); setTotpSecret(null); }}
+              >
+                Avbryt
+              </Button>
+            </div>
+          ) : (
+            // ── Verifisering: skriv inn TOTP-kode ──
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Skriv inn den 6-sifrede koden fra autentiseringsappen for å bekrefte oppsettet.
+              </p>
+              <Input
+                value={totpKode}
+                onChange={(e) => setTotpKode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="000000"
+                className="text-2xl tracking-widest text-center font-mono max-w-[180px]"
+                maxLength={6}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={bekreftTotp}
+                  disabled={totpKode.length !== 6 || totpLaster}
+                >
+                  {totpLaster ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="mr-2 h-4 w-4" />
+                  )}
+                  Bekreft og aktiver
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setTotpSteg("setup")}
+                >
+                  Tilbake
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
