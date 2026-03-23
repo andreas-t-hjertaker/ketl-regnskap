@@ -11,7 +11,8 @@ import {
 } from "@/lib/firebase/firestore";
 import { loggHandling } from "@/lib/audit";
 import { showToast } from "@/lib/toast";
-import type { Faktura, FakturaLinje, FakturaStatus } from "@/types";
+import { nestebilagsnummer } from "@/lib/firebase/firestore";
+import type { Faktura, FakturaLinje, FakturaStatus, Postering } from "@/types";
 
 export type FakturaMedId = Faktura & { id: string };
 
@@ -224,6 +225,92 @@ export function useFaktura(uid: string | null, klientId?: string | null) {
     [uid, path]
   );
 
+  /**
+   * Bokfør en faktura som bilag i regnskapet.
+   * Oppretter:
+   *  - Debet 1500 (kundefordring) for sum inkl. MVA
+   *  - Kredit 3000 (salgsinntekt) for sum ekskl. MVA
+   *  - Kredit 2701 (utgående MVA) for MVA-beløpet
+   *
+   * Merker fakturaen med bilagId etter bokføring.
+   */
+  const bokforFaktura = useCallback(
+    async (id: string, faktura: FakturaMedId): Promise<string | null> => {
+      if (!uid || !path) return null;
+      if (faktura.bilagId) {
+        showToast.error("Fakturaen er allerede bokført.");
+        return null;
+      }
+      try {
+        const bilagPath = `users/${uid}/bilag`;
+        const år = parseInt(faktura.dato.slice(0, 4), 10);
+        const bilagsnr = await nestebilagsnummer(uid, år);
+
+        const posteringer: Postering[] = [
+          {
+            kontonr: "1500",
+            kontonavn: "Kundefordringer",
+            debet: faktura.sumInkMva,
+            kredit: 0,
+            beskrivelse: `Faktura ${faktura.fakturanrFormatert}`,
+          },
+        ];
+
+        if (faktura.sumMva > 0) {
+          posteringer.push({
+            kontonr: "2701",
+            kontonavn: "Utgående MVA, høy sats",
+            debet: 0,
+            kredit: faktura.sumMva,
+            mvaKode: "3",
+            beskrivelse: `MVA ${faktura.fakturanrFormatert}`,
+          });
+        }
+
+        posteringer.push({
+          kontonr: "3000",
+          kontonavn: "Salgsinntekt",
+          debet: 0,
+          kredit: faktura.sumEksMva,
+          mvaKode: faktura.sumMva > 0 ? "3" : "0",
+          beskrivelse: `${faktura.kundeNavn} — ${faktura.fakturanrFormatert}`,
+        });
+
+        const bilagRef = await addDocument(bilagPath, {
+          bilagsnr,
+          dato: faktura.dato,
+          beskrivelse: `Salgsfaktura ${faktura.fakturanrFormatert} — ${faktura.kundeNavn}`,
+          belop: faktura.sumInkMva,
+          klientId: faktura.klientId,
+          status: "bokført",
+          motpartId: faktura.motpartId,
+          posteringer,
+          forfallsDato: faktura.forfallsDato,
+        });
+
+        // Koble faktura til bilag
+        await updateDocument(path, id, {
+          bilagId: bilagRef.id,
+          status: "sendt" as FakturaStatus,
+        });
+
+        await loggHandling(uid, "faktura_bokfort", "faktura", id, {
+          fakturanrFormatert: faktura.fakturanrFormatert,
+          bilagId: bilagRef.id,
+          bilagsnr,
+        });
+
+        showToast.success(`Faktura ${faktura.fakturanrFormatert} bokført som bilag #${bilagsnr}`);
+        return bilagRef.id;
+      } catch (err) {
+        console.error("bokforFaktura:", err);
+        showToast.error("Klarte ikke bokføre faktura");
+        return null;
+      }
+    },
+    [uid, path]
+  );
+
   // KPI-tall
   const kladder = fakturaer.filter((f) => f.status === "kladd");
   const sendte = fakturaer.filter((f) => f.status === "sendt");
@@ -251,5 +338,6 @@ export function useFaktura(uid: string | null, klientId?: string | null) {
     markerSendt,
     markerBetalt,
     krediterFaktura,
+    bokforFaktura,
   };
 }

@@ -20,6 +20,7 @@ import {
   ChevronDown,
   X,
   CreditCard,
+  BookOpen,
 } from "lucide-react";
 import {
   Card,
@@ -44,6 +45,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
 import { useMotparter } from "@/hooks/use-motparter";
 import { useFaktura, beregnFakturaSummer, type FakturaMedId } from "@/hooks/use-faktura";
+import Link from "next/link";
 import { formatDate, cn } from "@/lib/utils";
 import type { FakturaLinje, FakturaStatus } from "@/types";
 
@@ -381,12 +383,14 @@ function FakturaKort({
   onMarkerBetalt,
   onKrediter,
   onSlett,
+  onBokfor,
 }: {
   faktura: FakturaMedId;
   onMarkerSendt: () => void;
   onMarkerBetalt: (dato: string) => void;
   onKrediter: () => void;
   onSlett: () => void;
+  onBokfor: () => void;
 }) {
   const [betaltDatoInput, setBetaltDatoInput] = useState(false);
   const [betaltDato, setBetaltDato] = useState(new Date().toISOString().slice(0, 10));
@@ -481,13 +485,31 @@ function FakturaKort({
           </div>
         )}
 
+        {/* Bilag-lenke hvis bokført */}
+        {faktura.bilagId && (
+          <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
+            <BookOpen className="h-3 w-3" />
+            <Link href="/dashboard/bilag" className="hover:underline text-primary">
+              Se bokført bilag
+            </Link>
+          </div>
+        )}
+
         {/* Handlingsknapper */}
         <div className="mt-3 flex items-center gap-2">
           {erKladd && (
-            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onMarkerSendt}>
-              <Send className="h-3 w-3 mr-1" />
-              Merk som sendt
-            </Button>
+            <>
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onMarkerSendt}>
+                <Send className="h-3 w-3 mr-1" />
+                Merk som sendt
+              </Button>
+              {!faktura.bilagId && (
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onBokfor}>
+                  <BookOpen className="h-3 w-3 mr-1" />
+                  Bokfør
+                </Button>
+              )}
+            </>
           )}
           {erAktiv && !betaltDatoInput && (
             <Button
@@ -551,6 +573,7 @@ export default function FakturaPage() {
     markerBetalt,
     krediterFaktura,
     slettFaktura,
+    bokforFaktura,
   } = useFaktura(user?.uid ?? null, aktivKlient?.id);
 
   const [visNy, setVisNy] = useState(false);
@@ -715,6 +738,7 @@ export default function FakturaPage() {
                 onMarkerBetalt={(dato) => markerBetalt(faktura.id, faktura, dato)}
                 onKrediter={() => krediterFaktura(faktura.id, faktura)}
                 onSlett={() => slettFaktura(faktura.id, faktura.fakturanrFormatert)}
+                onBokfor={() => bokforFaktura(faktura.id, faktura)}
               />
             ))}
           </div>
