@@ -15,6 +15,8 @@ import {
   ArrowRightLeft,
   ArrowDownRight,
   ArrowUpRight,
+  FilePlus,
+  AlertCircle,
 } from "lucide-react";
 import {
   Card,
@@ -30,6 +32,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
 import { useBilag } from "@/hooks/use-bilag";
 import { useCashflow, type CashflowMåned } from "@/hooks/use-cashflow";
+import { useFaktura } from "@/hooks/use-faktura";
+import Link from "next/link";
 
 // ─── Hjelpere ───────────────────────────────────────────────────────────────
 
@@ -85,10 +89,16 @@ function CashflowBar({ måned, maxAbsVerdi }: { måned: CashflowMåned; maxAbsVe
 
 // ─── Hoved-side ─────────────────────────────────────────────────────────────
 
+const MÅNEDSNAVN = [
+  "jan", "feb", "mar", "apr", "mai", "jun",
+  "jul", "aug", "sep", "okt", "nov", "des",
+];
+
 export default function CashflowPage() {
   const { user } = useAuth();
   const { aktivKlientId, aktivKlient } = useAktivKlient();
   const { bilag, loading } = useBilag(user?.uid ?? null, aktivKlientId);
+  const { fakturaer } = useFaktura(user?.uid ?? null, aktivKlientId);
   const cashflow = useCashflow(bilag, 6);
 
   const maxAbsVerdi = useMemo(
@@ -102,6 +112,32 @@ export default function CashflowPage() {
 
   const sistHistorisk = cashflow.måneder.filter((m) => !m.erPrognose).at(-1);
   const sistePrognose = cashflow.måneder.at(-1);
+
+  // Utestående fakturaer gruppert per forfallsmåned
+  const forventedeFakturaer = useMemo(() => {
+    const aktive = fakturaer.filter(
+      (f) => f.status === "sendt" || f.status === "forfalt"
+    );
+    const perMåned = new Map<string, { sumInkMva: number; antall: number; forfalte: number }>();
+    for (const f of aktive) {
+      const mnd = f.forfallsDato.slice(0, 7);
+      const existing = perMåned.get(mnd) ?? { sumInkMva: 0, antall: 0, forfalte: 0 };
+      existing.sumInkMva += f.sumInkMva;
+      existing.antall++;
+      if (f.status === "forfalt") existing.forfalte++;
+      perMåned.set(mnd, existing);
+    }
+    return [...perMåned.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([periode, data]) => {
+        const [år, mnd] = periode.split("-").map(Number);
+        return {
+          periode,
+          label: `${MÅNEDSNAVN[mnd - 1]} ${år}`,
+          ...data,
+        };
+      });
+  }, [fakturaer]);
 
   return (
     <div className="space-y-6">
@@ -287,6 +323,74 @@ export default function CashflowPage() {
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </SlideIn>
+      )}
+
+      {/* ── Forventede innbetalinger fra fakturaer ── */}
+      {forventedeFakturaer.length > 0 && (
+        <SlideIn>
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FilePlus className="h-4 w-4 text-blue-500" />
+                  Forventede innbetalinger — fakturaer
+                </CardTitle>
+                <Link
+                  href="/dashboard/faktura"
+                  className="text-xs text-primary hover:underline underline-offset-4"
+                >
+                  Se alle →
+                </Link>
+              </div>
+              <CardDescription className="text-xs">
+                Utestående fakturaer (sendt + forfalt) gruppert per forfallsmåned
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0 pb-4">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[380px]">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Forfallsmåned</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">Antall</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-green-600">Forventet inn</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {forventedeFakturaer.map((rad) => (
+                      <tr key={rad.periode} className="border-b last:border-0 hover:bg-muted/20">
+                        <td className="px-4 py-2 flex items-center gap-2 capitalize">
+                          {rad.label}
+                          {rad.forfalte > 0 && (
+                            <span className="flex items-center gap-0.5 text-xs text-red-500">
+                              <AlertCircle className="h-3 w-3" />
+                              {rad.forfalte} forfalt
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-right text-xs text-muted-foreground">
+                          {rad.antall}
+                        </td>
+                        <td className="px-4 py-2 text-right font-mono text-xs font-medium text-green-600">
+                          {formatNOK(rad.sumInkMva)}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="border-t bg-muted/30">
+                      <td className="px-4 py-2 text-xs font-semibold">Totalt utestående</td>
+                      <td className="px-4 py-2 text-right text-xs">
+                        {forventedeFakturaer.reduce((s, r) => s + r.antall, 0)}
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono text-sm font-bold text-green-600">
+                        {formatNOK(forventedeFakturaer.reduce((s, r) => s + r.sumInkMva, 0))}
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
