@@ -74,6 +74,13 @@ service cloud.firestore {
         allow update: if erEier(uid) && (
           !request.resource.data.keys().hasAny(['klientId']) ||
           request.resource.data.klientId is string
+        ) && (
+          // Bokføringsloven § 9: bokførte og krediterte bilag er regnskapsmessig
+          // låste. Klienten kan ikke endre status vekk fra disse (kun til "kreditert"
+          // er tillatt fra "bokført" — for krediterBilag()-funksjonen).
+          // Cloud Functions bruker Admin SDK og bypasser disse reglene.
+          !(resource.data.status in ["bokført", "kreditert"]) ||
+          request.resource.data.status in ["bokført", "kreditert"]
         );
         // Bokføringsloven § 9 + § 13: bokførte og krediterte bilag kan ikke slettes
         // i oppbevaringsperioden (5 år). Kun "ubehandlet", "foreslått", "avvist" og

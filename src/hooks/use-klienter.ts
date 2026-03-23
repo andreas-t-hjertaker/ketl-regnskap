@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { orderBy, where } from "firebase/firestore";
+import { orderBy, where, serverTimestamp } from "firebase/firestore";
 import {
   subscribeToCollection,
   addDocument,
@@ -70,7 +70,7 @@ export function useKlienter(uid: string | null) {
         const ref = await addDocument(path, {
           ...data,
           orgnr: orgnrRaw,
-          opprettet: new Date(),
+          opprettet: serverTimestamp(),
         });
         await loggHandling(uid, "klient_opprettet", "klient", ref.id, { navn: data.navn });
         showToast.success(`${data.navn} er lagt til.`);

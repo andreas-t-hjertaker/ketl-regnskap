@@ -131,7 +131,9 @@ export function useRapporter(uid: string | null, klientId?: string | null) {
     const terminMap = new Map<string, { utgående: number; inngående: number }>();
 
     for (const p of posteringer) {
+      if (!p.dato || !p.dato.includes("-")) continue;
       const [år, mnd] = p.dato.split("-").map(Number);
+      if (!år || !mnd) continue;
       const terminNr = Math.ceil(mnd / 2);
       const terminKey = `${år}-T${terminNr}`;
 

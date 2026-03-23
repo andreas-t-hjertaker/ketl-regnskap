@@ -62,7 +62,7 @@ export default function AarsoppgjorPage() {
   const { motparter } = useMotparter(user?.uid ?? null, aktivKlientId);
 
   const tilgjengeligeÅr = useMemo(() => {
-    const fraBilag = new Set(bilag.map((b) => b.dato.slice(0, 4)));
+    const fraBilag = new Set(bilag.filter((b) => b.dato?.length >= 4).map((b) => b.dato.slice(0, 4)));
     const standard = nåværendeOgTidligereÅr().map(String);
     return [...new Set([...standard, ...fraBilag])].sort().reverse();
   }, [bilag]);
@@ -72,7 +72,7 @@ export default function AarsoppgjorPage() {
   const resultat = resultatForPeriode(valgtÅr);
   const ingenData = resultat.driftsinntekter.length === 0 && resultat.driftskostnader.length === 0;
 
-  const bilagForÅr = bilag.filter((b) => b.dato.startsWith(valgtÅr));
+  const bilagForÅr = bilag.filter((b) => b.dato?.startsWith(valgtÅr));
 
   function handlePrint() {
     window.print();

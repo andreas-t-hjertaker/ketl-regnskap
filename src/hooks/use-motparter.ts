@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { orderBy, where } from "firebase/firestore";
+import { orderBy, where, serverTimestamp } from "firebase/firestore";
 import {
   subscribeToCollection,
   addDocument,
@@ -50,7 +50,7 @@ export function useMotparter(uid: string | null, klientId?: string | null) {
       try {
         const ref = await addDocument(path, {
           ...data,
-          opprettet: new Date(),
+          opprettet: serverTimestamp(),
         });
         await loggHandling(uid, "motpart_opprettet", "motpart", ref.id, {
           navn: data.navn,

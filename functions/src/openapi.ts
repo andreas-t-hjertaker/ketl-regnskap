@@ -27,7 +27,7 @@ export const OPENAPI_SPEC = {
       description: "Produksjonsserver (Cloud Run)",
     },
     {
-      url: "http://localhost:5001/ketlcloud/europe-west1/api",
+      url: "http://localhost:5001/ketl-regnskap/europe-west1/api",
       description: "Lokal utviklingsserver",
     },
   ],
@@ -449,7 +449,7 @@ export const OPENAPI_SPEC = {
         summary: "List motparter",
         operationId: "listMotparter",
         tags: ["Motparter"],
-        security: [{ BearerAuth: [] }],
+        security: [{ BearerAuth: [] }, { ApiKeyAuth: [] }],
         parameters: [
           { name: "klientId", in: "query", schema: { type: "string" }, description: "Filtrer etter klient-ID" },
           { name: "type", in: "query", schema: { type: "string", enum: ["kunde", "leverandor"] }, description: "Filtrer etter type" },
@@ -460,7 +460,7 @@ export const OPENAPI_SPEC = {
         summary: "Opprett motpart",
         operationId: "createMotpart",
         tags: ["Motparter"],
-        security: [{ BearerAuth: [] }],
+        security: [{ BearerAuth: [] }, { ApiKeyAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -489,7 +489,7 @@ export const OPENAPI_SPEC = {
         summary: "Hent motpart",
         operationId: "getMotpart",
         tags: ["Motparter"],
-        security: [{ BearerAuth: [] }],
+        security: [{ BearerAuth: [] }, { ApiKeyAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
         responses: { "200": { description: "Motpart-detaljer" } },
       },
@@ -497,7 +497,7 @@ export const OPENAPI_SPEC = {
         summary: "Oppdater motpart",
         operationId: "updateMotpart",
         tags: ["Motparter"],
-        security: [{ BearerAuth: [] }],
+        security: [{ BearerAuth: [] }, { ApiKeyAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
         requestBody: {
           required: true,
@@ -509,7 +509,7 @@ export const OPENAPI_SPEC = {
         summary: "Slett motpart",
         operationId: "deleteMotpart",
         tags: ["Motparter"],
-        security: [{ BearerAuth: [] }],
+        security: [{ BearerAuth: [] }, { ApiKeyAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
         responses: { "200": { description: "Motpart slettet" } },
       },
