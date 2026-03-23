@@ -117,6 +117,59 @@ service cloud.firestore {
         allow update: if erEier(uid);
         allow delete: if erEier(uid);
       }
+
+      // Fakturaer — Bokfl. § 10 (nummerering), Mval. § 15-10 (salgsdokumentasjon)
+      // Sendte og betalte fakturaer er regnskapsdokumenter og bør ikke slettes.
+      match /fakturaer/{fakturaId} {
+        allow read: if erEier(uid);
+        allow create: if erEier(uid) &&
+          request.resource.data.klientId is string &&
+          request.resource.data.fakturanr is int &&
+          request.resource.data.sumInkMva is number;
+        allow update: if erEier(uid);
+        allow delete: if erEier(uid) &&
+          resource.data.status == "kladd";
+      }
+
+      // Ansatte — brukes av A-melding og lønnsutbetaling
+      match /ansatte/{ansattId} {
+        allow read, write: if erEier(uid);
+      }
+
+      // Lønnsutbetalinger — A-melding og lønnssedler
+      match /lonnsutbetalinger/{utbetalingId} {
+        allow read, write: if erEier(uid);
+      }
+
+      // A-meldinger (innsendinger til Altinn)
+      match /amelding_innsendinger/{innsendelseId} {
+        allow read, write: if erEier(uid);
+      }
+
+      // Regnskapsperioder — åpne/lukke perioder (Bokfl. § 7)
+      match /regnskapsperioder/{periodeId} {
+        allow read, write: if erEier(uid);
+      }
+
+      // Prosjekter — prosjektregnskap
+      match /prosjekter/{prosjektId} {
+        allow read, write: if erEier(uid);
+      }
+
+      // Anleggsmidler — avskrivningsplaner
+      match /anleggsmidler/{anleggsmiddelId} {
+        allow read, write: if erEier(uid);
+      }
+
+      // Budsjett — årsbudsjett per kontogruppe
+      match /budsjett/{budsjettId} {
+        allow read, write: if erEier(uid);
+      }
+
+      // Banktransaksjoner — bankavstemmingsimport
+      match /bank_transaksjoner/{transaksjonId} {
+        allow read, write: if erEier(uid);
+      }
     }
   }
 }
