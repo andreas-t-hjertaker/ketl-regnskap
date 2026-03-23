@@ -175,6 +175,14 @@ export type Bilag = {
   korrigererBilagId?: string;
   /** ISO-dato for når bilaget ble arkivert (etter 5 år iht. Bokfl. § 13) */
   arkivertDato?: string;
+  /** ISO-dato for forfall — brukes til purring og inkasso-oppfølging */
+  forfallsDato?: string;
+  /** Purre-status: antall purringer sendt og siste purredato */
+  purring?: {
+    antall: number;          // Antall purringer sendt (1 = 1. purring, 2 = 2. purring osv.)
+    sistePurringDato: string; // ISO-dato
+    inkasso?: boolean;        // True hvis saken er sendt til inkasso
+  };
 };
 
 /** Postering (debet/kredit-linje i et bilag) */

@@ -84,6 +84,7 @@ export default function NyBilagPage() {
   const [leverandor, setLeverandor] = useState("");
   const [motpartId, setMotpartId] = useState("");
   const [kategori, setKategori] = useState("");
+  const [forfallsDato, setForfallsDato] = useState("");
   const [rader, setRader] = useState<PosteringRad[]>([nyRad(), nyRad()]);
   const [lagrer, setLagrer] = useState(false);
   const [kontoSøk, setKontoSøk] = useState<Record<string, string>>({});
@@ -170,6 +171,7 @@ export default function NyBilagPage() {
       ...(kategori ? { kategori } : {}),
       ...(leverandor ? { leverandor } : {}),
       ...(motpartId ? { motpartId } : {}),
+      ...(forfallsDato ? { forfallsDato } : {}),
     });
 
     setLagrer(false);
@@ -237,6 +239,16 @@ export default function NyBilagPage() {
                 placeholder="f.eks. Kontorkostnader"
                 value={kategori}
                 onChange={(e) => setKategori(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="forfallsDato">Forfallsdato</Label>
+              <Input
+                id="forfallsDato"
+                type="date"
+                value={forfallsDato}
+                onChange={(e) => setForfallsDato(e.target.value)}
+                min={dato}
               />
             </div>
             {motparter.length > 0 && (

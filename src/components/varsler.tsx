@@ -99,7 +99,31 @@ function byggVarsler(bilag: BilagMedId[]): Varsel[] {
     });
   }
 
-  // 3. MVA-frister innen 30 dager
+  // 3. Forfalte bilag (med forfallsDato som er passert)
+  const nå = new Date().toISOString().slice(0, 10);
+  const forfalte = bilag.filter(
+    (b) =>
+      b.status === "bokført" &&
+      b.forfallsDato &&
+      b.forfallsDato < nå &&
+      !b.purring?.inkasso &&
+      !b.kreditertAvId
+  );
+  if (forfalte.length > 0) {
+    const totalSum = forfalte.reduce((s, b) => s + b.belop, 0);
+    const formatNOK = (v: number) =>
+      new Intl.NumberFormat("nb-NO", { style: "currency", currency: "NOK", maximumFractionDigits: 0 }).format(v);
+    varsler.push({
+      id: "forfalte",
+      type: "warning",
+      tittel: `${forfalte.length} bilag har passert forfallsdato`,
+      melding: `Totalt ${formatNOK(totalSum)} er forfalt. Vurder å sende purring.`,
+      lenke: "/dashboard/bilag/purring",
+      lenkeTekst: "Purring og inkasso →",
+    });
+  }
+
+  // 4. MVA-frister innen 30 dager
   const frister = nesteMvaFrister();
   if (frister.length > 0) {
     const neste = frister[0];

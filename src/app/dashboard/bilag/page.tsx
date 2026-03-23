@@ -29,6 +29,7 @@ import {
   Download,
   X,
   PenLine,
+  MailWarning,
 } from "lucide-react";
 import { eksporterBilagCsv, eksporterPosteringerCsv } from "@/lib/eksport";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
@@ -174,7 +175,13 @@ export default function BilagPage() {
               Administrer kvitteringer og fakturaer. AI foreslår bokføring automatisk.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Link href="/dashboard/bilag/purring">
+              <Button variant="outline" size="sm">
+                <MailWarning className="mr-2 h-4 w-4" />
+                Purring
+              </Button>
+            </Link>
             <Link href="/dashboard/bilag/ny">
               <Button variant="outline">
                 <PenLine className="mr-2 h-4 w-4" />
