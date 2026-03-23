@@ -32,6 +32,7 @@ import {
   AnimatedCounter,
 } from "@/components/motion";
 import { Varsler } from "@/components/varsler";
+import { Fristmonitor } from "@/components/fristmonitor";
 
 function formatNOK(value: number) {
   return new Intl.NumberFormat("nb-NO", {
@@ -101,6 +102,11 @@ export default function DashboardPage() {
 
       {/* Varsler */}
       {!loading && <Varsler bilag={bilag} />}
+
+      {/* Fristmonitor */}
+      <SlideIn direction="up" delay={0.05}>
+        <Fristmonitor />
+      </SlideIn>
 
       {/* KPI-kort */}
       {loading ? (
