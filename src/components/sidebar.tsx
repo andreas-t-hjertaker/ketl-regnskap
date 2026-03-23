@@ -55,6 +55,7 @@ const navItems = [
   { href: "/dashboard/budsjett", label: "Budsjett", icon: PieChart },
   { href: "/dashboard/cashflow", label: "Cashflow", icon: Banknote },
   { href: "/dashboard/prosjekter", label: "Prosjekter", icon: FolderOpen },
+  { href: "/dashboard/bankavst", label: "Bankavst.", icon: CreditCard },
   { href: "/dashboard/avskrivninger", label: "Avskrivninger", icon: TrendingDown },
   { href: "/dashboard/aarsoppgjor", label: "Årsoppgjør", icon: BookOpenCheck },
   { href: "/dashboard/kontoplan", label: "Kontoplan", icon: BookMarked },

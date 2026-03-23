@@ -16,6 +16,7 @@ type AdminStats = {
   totalUsers: number;
   activeSubscriptions: number;
   totalApiKeys: number;
+  mrr: number;
 };
 
 export default function AdminPage() {
@@ -46,9 +47,11 @@ export default function AdminPage() {
     },
     {
       title: "MRR",
-      value: "—",
+      value: stats
+        ? new Intl.NumberFormat("nb-NO", { style: "currency", currency: "NOK", maximumFractionDigits: 0 }).format(stats.mrr)
+        : "—",
       icon: TrendingUp,
-      description: "Månedlig inntekt (kommer)",
+      description: "Månedlig tilbakevendende inntekt",
     },
     {
       title: "API-nøkler",
