@@ -98,6 +98,12 @@ export type Klient = {
   telefon?: string;
   adresse?: string;
   bransje?: string;
+  /** Bankkontonummer for fakturautbetaling (format: NNNN.NN.NNNNN) */
+  bankkontonr?: string;
+  /** Standard betalingsfrist i dager (f.eks. 14 eller 30) */
+  betalingsbetingelseDager?: number;
+  /** Valgfri bunntekst på fakturaer (f.eks. "Faktura merkes med org.nr.") */
+  fakturaBunntekst?: string;
   opprettet: Date;
 };
 

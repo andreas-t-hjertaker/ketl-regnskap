@@ -247,6 +247,10 @@ export default function KlienterPage() {
       telefon: (fd.get("telefon") as string) || undefined,
       bransje: (fd.get("bransje") as string) || undefined,
       adresse: (fd.get("adresse") as string) || undefined,
+      bankkontonr: (fd.get("bankkontonr") as string) || undefined,
+      betalingsbetingelseDager: fd.get("betalingsbetingelseDager")
+        ? parseInt(fd.get("betalingsbetingelseDager") as string, 10)
+        : undefined,
     });
     setLagrerRedigering(false);
     setRedigererKlientId(null);
@@ -390,6 +394,14 @@ export default function KlienterPage() {
                       <div className="space-y-1.5">
                         <Label htmlFor={`k-adr-${klient.id}`}>Adresse</Label>
                         <Input id={`k-adr-${klient.id}`} name="adresse" defaultValue={klient.adresse ?? ""} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`k-bank-${klient.id}`}>Bankkontonr. (faktura)</Label>
+                        <Input id={`k-bank-${klient.id}`} name="bankkontonr" className="font-mono text-sm" placeholder="1234.56.78901" defaultValue={klient.bankkontonr ?? ""} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`k-bet-${klient.id}`}>Betalingsfrist (dager)</Label>
+                        <Input id={`k-bet-${klient.id}`} name="betalingsbetingelseDager" type="number" min={1} max={90} defaultValue={klient.betalingsbetingelseDager ?? 14} />
                       </div>
                       <div className="sm:col-span-2 flex gap-2">
                         <Button type="submit" size="sm" disabled={lagrerRedigering}>

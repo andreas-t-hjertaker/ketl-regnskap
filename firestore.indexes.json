@@ -109,6 +109,31 @@
         { "fieldPath": "år", "order": "DESCENDING" },
         { "fieldPath": "måned", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "fakturaer",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "klientId", "order": "ASCENDING" },
+        { "fieldPath": "dato", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "fakturaer",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "klientId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "dato", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "fakturaer",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "klientId", "order": "ASCENDING" },
+        { "fieldPath": "forfallsDato", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

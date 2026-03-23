@@ -108,9 +108,10 @@ type NyFakturaSkjema = {
   linjer: FakturaLinje[];
 };
 
-function tomSkjema(): NyFakturaSkjema {
+function tomSkjema(bankkontonr?: string, betalingsDager?: number): NyFakturaSkjema {
   const idag = new Date().toISOString().slice(0, 10);
-  const forfall = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+  const dager = betalingsDager ?? 14;
+  const forfall = new Date(Date.now() + dager * 86400000).toISOString().slice(0, 10);
   return {
     motpartId: "",
     kundeNavn: "",
@@ -118,7 +119,7 @@ function tomSkjema(): NyFakturaSkjema {
     dato: idag,
     forfallsDato: forfall,
     kid: "",
-    bankkontonr: "",
+    bankkontonr: bankkontonr ?? "",
     linjer: [tomLinje()],
   };
 }
@@ -129,12 +130,18 @@ function NyFakturaPanel({
   kunder,
   onLagre,
   onAvbryt,
+  klientBankkontonr,
+  klientBetalingsDager,
 }: {
   kunder: { id: string; navn: string; orgnr?: string }[];
   onLagre: (skjema: NyFakturaSkjema) => Promise<void>;
   onAvbryt: () => void;
+  klientBankkontonr?: string;
+  klientBetalingsDager?: number;
 }) {
-  const [skjema, setSkjema] = useState<NyFakturaSkjema>(tomSkjema());
+  const [skjema, setSkjema] = useState<NyFakturaSkjema>(() =>
+    tomSkjema(klientBankkontonr, klientBetalingsDager)
+  );
   const [lagrer, setLagrer] = useState(false);
 
   const summer = useMemo(() => beregnFakturaSummer(skjema.linjer), [skjema.linjer]);
@@ -697,6 +704,8 @@ export default function FakturaPage() {
         {visNy && (
           <NyFakturaPanel
             kunder={kunder.map((k) => ({ id: k.id, navn: k.navn, orgnr: k.orgnr }))}
+            klientBankkontonr={aktivKlient.bankkontonr}
+            klientBetalingsDager={aktivKlient.betalingsbetingelseDager}
             onAvbryt={() => setVisNy(false)}
             onLagre={async (skjema) => {
               if (!user?.uid) return;
