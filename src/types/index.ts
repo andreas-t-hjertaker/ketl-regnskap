@@ -496,6 +496,12 @@ export type Faktura = {
   bunntekst?: string;
   /** ISO-dato for betaling */
   betaltDato?: string;
+  /** Purre-status for fakturaen */
+  purring?: {
+    antall: number;          // Antall purringer sendt
+    sistePurringDato: string; // ISO-dato
+    inkasso?: boolean;        // True hvis oversendt inkasso (etter 3 purringer)
+  };
   opprettet: Date;
 };
 

@@ -384,6 +384,7 @@ function FakturaKort({
   onKrediter,
   onSlett,
   onBokfor,
+  onPurring,
 }: {
   faktura: FakturaMedId;
   onMarkerSendt: () => void;
@@ -391,12 +392,14 @@ function FakturaKort({
   onKrediter: () => void;
   onSlett: () => void;
   onBokfor: () => void;
+  onPurring: () => void;
 }) {
   const [betaltDatoInput, setBetaltDatoInput] = useState(false);
   const [betaltDato, setBetaltDato] = useState(new Date().toISOString().slice(0, 10));
 
   const erAktiv = faktura.status === "sendt" || faktura.status === "forfalt";
   const erKladd = faktura.status === "kladd";
+  const erForfalt = faktura.status === "forfalt";
 
   return (
     <Card className={cn("transition-all", faktura.status === "forfalt" && "border-destructive/40")}>
@@ -485,6 +488,19 @@ function FakturaKort({
           </div>
         )}
 
+        {/* Purring-status */}
+        {faktura.purring && (
+          <div className={cn(
+            "mt-2 text-xs flex items-center gap-1",
+            faktura.purring.inkasso ? "text-destructive" : "text-amber-600"
+          )}>
+            <AlertCircle className="h-3 w-3" />
+            {faktura.purring.inkasso
+              ? `Inkasso — ${faktura.purring.antall} purringer sendt`
+              : `${faktura.purring.antall}. purring sendt ${faktura.purring.sistePurringDato}`}
+          </div>
+        )}
+
         {/* Bilag-lenke hvis bokført */}
         {faktura.bilagId && (
           <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
@@ -520,6 +536,17 @@ function FakturaKort({
             >
               <CheckCircle2 className="h-3 w-3 mr-1" />
               Registrer betaling
+            </Button>
+          )}
+          {erForfalt && (
+            <Button
+              size="sm"
+              variant="outline"
+              className={cn("h-7 text-xs", faktura.purring?.inkasso ? "text-destructive border-destructive/40" : "")}
+              onClick={onPurring}
+            >
+              <AlertCircle className="h-3 w-3 mr-1" />
+              {faktura.purring ? `${faktura.purring.antall + 1}. purring` : "Send purring"}
             </Button>
           )}
 
@@ -574,6 +601,7 @@ export default function FakturaPage() {
     krediterFaktura,
     slettFaktura,
     bokforFaktura,
+    registrerPurring,
   } = useFaktura(user?.uid ?? null, aktivKlient?.id);
 
   const [visNy, setVisNy] = useState(false);
@@ -739,6 +767,7 @@ export default function FakturaPage() {
                 onKrediter={() => krediterFaktura(faktura.id, faktura)}
                 onSlett={() => slettFaktura(faktura.id, faktura.fakturanrFormatert)}
                 onBokfor={() => bokforFaktura(faktura.id, faktura)}
+                onPurring={() => registrerPurring(faktura.id, faktura)}
               />
             ))}
           </div>

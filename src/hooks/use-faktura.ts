@@ -73,7 +73,14 @@ export function useFaktura(uid: string | null, klientId?: string | null) {
 
     const unsubscribe = subscribeToCollection<Faktura>(
       path,
-      (data) => {
+      async (data) => {
+        const idag = new Date().toISOString().slice(0, 10);
+        // Auto-markere forfalte fakturaer (sendt + forfallsDato passert)
+        for (const f of data as FakturaMedId[]) {
+          if (f.status === "sendt" && f.forfallsDato < idag) {
+            await updateDocument(path, f.id, { status: "forfalt" as FakturaStatus }).catch(() => {});
+          }
+        }
         setFakturaer(data as FakturaMedId[]);
         setLoading(false);
       },
@@ -225,6 +232,31 @@ export function useFaktura(uid: string | null, klientId?: string | null) {
     [uid, path]
   );
 
+  /** Registrer at purring er sendt for en faktura */
+  const registrerPurring = useCallback(
+    async (id: string, faktura: FakturaMedId): Promise<boolean> => {
+      if (!uid || !path) return false;
+      try {
+        const antall = (faktura.purring?.antall ?? 0) + 1;
+        const sistePurringDato = new Date().toISOString().slice(0, 10);
+        await updateDocument(path, id, {
+          purring: {
+            antall,
+            sistePurringDato,
+            inkasso: antall >= 3,
+          },
+        });
+        showToast.success(`${antall}. purring registrert for ${faktura.fakturanrFormatert}`);
+        return true;
+      } catch (err) {
+        console.error("registrerPurring:", err);
+        showToast.error("Klarte ikke registrere purring");
+        return false;
+      }
+    },
+    [uid, path]
+  );
+
   /**
    * Bokfør en faktura som bilag i regnskapet.
    * Oppretter:
@@ -339,5 +371,6 @@ export function useFaktura(uid: string | null, klientId?: string | null) {
     markerBetalt,
     krediterFaktura,
     bokforFaktura,
+    registrerPurring,
   };
 }
