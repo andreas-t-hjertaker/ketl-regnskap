@@ -1,18 +1,21 @@
 "use client";
 
 /**
- * Kontoplan — NS 4102 standard norsk kontoplan
+ * Kontoplan — NS 4102 standard norsk kontoplan med bruker-tilpasning
  *
  * Viser fullstendig kontoplan med søk og filtrering per kontoklasse.
- * NS 4102 er den norske standarden for kontoplan, som brukes i SAF-T-eksport.
- * Kontoene er inndelt i 8 klasser (1-8) etter norsk standard.
+ * Brukere kan deaktivere kontoer de ikke bruker, og legge til egendefinerte kontoer
+ * som ikke finnes i NS 4102-standarden.
+ *
+ * Tilpassede kontoer lagres i users/{uid}/kontoplan/{nummer} i Firestore.
  */
 
 import { useState, useMemo } from "react";
-import { Search, BookOpen } from "lucide-react";
+import { Search, BookOpen, Plus, X, ToggleLeft, ToggleRight, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -21,7 +24,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { SlideIn } from "@/components/motion";
-import { NS4102_KONTOPLAN } from "@/lib/kontoplan";
+import { useAuth } from "@/hooks/use-auth";
+import { useKontoplan, type KontoMedStatus } from "@/hooks/use-kontoplan";
+import type { Konto } from "@/types";
 
 const KLASSE_BESKRIVELSE: Record<string, { navn: string; farge: string }> = {
   "1": { navn: "Eiendeler", farge: "bg-blue-500/10 text-blue-700 border-blue-500/20" },
@@ -34,13 +39,113 @@ const KLASSE_BESKRIVELSE: Record<string, { navn: string; farge: string }> = {
   "8": { navn: "Finansinntekter og -kostnader", farge: "bg-gray-500/10 text-gray-700 border-gray-500/20" },
 };
 
+const KONTO_TYPER: Konto["type"][] = [
+  "eiendel", "gjeld", "egenkapital", "inntekt", "kostnad",
+];
+
+function NyKontoSkjema({
+  onLagret,
+  onAvbryt,
+  addCustomKonto,
+}: {
+  onLagret: () => void;
+  onAvbryt: () => void;
+  addCustomKonto: (data: {
+    nummer: string;
+    navn: string;
+    gruppe: string;
+    type: Konto["type"];
+  }) => Promise<boolean>;
+}) {
+  const [nummer, setNummer] = useState("");
+  const [navn, setNavn] = useState("");
+  const [gruppe, setGruppe] = useState("");
+  const [type, setType] = useState<Konto["type"]>("kostnad");
+  const [lagrer, setLagrer] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nummer || !navn) return;
+    setLagrer(true);
+    const ok = await addCustomKonto({ nummer, navn, gruppe: gruppe || "Egendefinerte kontoer", type });
+    setLagrer(false);
+    if (ok) onLagret();
+  }
+
+  return (
+    <form className="grid gap-3 sm:grid-cols-2" onSubmit={handleSubmit}>
+      <div className="space-y-1.5">
+        <Label htmlFor="ny-nummer">Kontonummer *</Label>
+        <Input
+          id="ny-nummer"
+          placeholder="f.eks. 3950"
+          value={nummer}
+          onChange={(e) => setNummer(e.target.value.replace(/\D/g, ""))}
+          maxLength={8}
+          required
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="ny-navn">Kontonavn *</Label>
+        <Input
+          id="ny-navn"
+          placeholder="f.eks. Sponsorinntekter"
+          value={navn}
+          onChange={(e) => setNavn(e.target.value)}
+          required
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="ny-gruppe">Gruppe</Label>
+        <Input
+          id="ny-gruppe"
+          placeholder="f.eks. Driftsinntekter"
+          value={gruppe}
+          onChange={(e) => setGruppe(e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="ny-type">Type</Label>
+        <select
+          id="ny-type"
+          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          value={type}
+          onChange={(e) => setType(e.target.value as Konto["type"])}
+        >
+          {KONTO_TYPER.map((t) => (
+            <option key={t} value={t}>
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="sm:col-span-2 flex gap-2">
+        <Button type="submit" disabled={lagrer}>
+          {lagrer ? "Lagrer…" : "Legg til konto"}
+        </Button>
+        <Button type="button" variant="outline" onClick={onAvbryt}>
+          Avbryt
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export default function KontoplanPage() {
+  const { user } = useAuth();
+  const { kontoplan, loading, toggleAktiv, addCustomKonto, deleteCustomKonto } =
+    useKontoplan(user?.uid ?? null);
+
   const [søk, setSøk] = useState("");
   const [aktivKlasse, setAktivKlasse] = useState<string | null>(null);
+  const [visDeaktivert, setVisDeaktivert] = useState(false);
+  const [visNySkjema, setVisNySkjema] = useState(false);
+  const [redigerer, setRedigerer] = useState(false);
 
   const filtrerte = useMemo(() => {
     const q = søk.toLowerCase().trim();
-    return NS4102_KONTOPLAN.filter((k) => {
+    return kontoplan.filter((k) => {
+      if (!visDeaktivert && k.erDeaktivert) return false;
       if (aktivKlasse && k.nummer[0] !== aktivKlasse) return false;
       if (!q) return true;
       return (
@@ -49,11 +154,10 @@ export default function KontoplanPage() {
         k.gruppe.toLowerCase().includes(q)
       );
     });
-  }, [søk, aktivKlasse]);
+  }, [kontoplan, søk, aktivKlasse, visDeaktivert]);
 
-  // Grupper filtrerte kontoer etter gruppe
   const grupper = useMemo(() => {
-    const map = new Map<string, typeof NS4102_KONTOPLAN>();
+    const map = new Map<string, KontoMedStatus[]>();
     for (const k of filtrerte) {
       const liste = map.get(k.gruppe) ?? [];
       liste.push(k);
@@ -62,23 +166,72 @@ export default function KontoplanPage() {
     return map;
   }, [filtrerte]);
 
-  const klasser = [...new Set(NS4102_KONTOPLAN.map((k) => k.nummer[0]))].sort();
+  const klasser = [...new Set(kontoplan.map((k) => k.nummer[0]))].sort();
+  const antallDeaktivert = kontoplan.filter((k) => k.erDeaktivert).length;
+  const antallCustom = kontoplan.filter((k) => k.erCustom).length;
 
   return (
     <div className="space-y-6">
       <SlideIn direction="up" duration={0.4}>
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Kontoplan</h1>
             <p className="text-muted-foreground">
-              NS 4102 standard norsk kontoplan — brukt i SAF-T-eksport og bokføring.
+              NS 4102 standard norsk kontoplan — tilpass og administrer dine kontoer.
             </p>
           </div>
-          <Badge variant="outline" className="font-mono">
-            {NS4102_KONTOPLAN.length} kontoer
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="font-mono">
+              {kontoplan.filter((k) => !k.erDeaktivert).length} aktive
+            </Badge>
+            <Button
+              size="sm"
+              variant={redigerer ? "default" : "outline"}
+              onClick={() => setRedigerer(!redigerer)}
+            >
+              {redigerer ? "Ferdig" : "Rediger"}
+            </Button>
+          </div>
         </div>
       </SlideIn>
+
+      {/* Ny konto-skjema */}
+      {redigerer && (
+        <SlideIn direction="up">
+          {visNySkjema ? (
+            <Card className="border-primary/30">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center justify-between">
+                  Legg til egendefinert konto
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setVisNySkjema(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </CardTitle>
+                <CardDescription>
+                  Legg til kontoer som ikke finnes i NS 4102-standarden.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <NyKontoSkjema
+                  onLagret={() => setVisNySkjema(false)}
+                  onAvbryt={() => setVisNySkjema(false)}
+                  addCustomKonto={addCustomKonto}
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <Button onClick={() => setVisNySkjema(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Ny egendefinert konto
+            </Button>
+          )}
+        </SlideIn>
+      )}
 
       {/* Søk og filtrer */}
       <SlideIn direction="up" delay={0.05}>
@@ -115,12 +268,33 @@ export default function KontoplanPage() {
                 </span>
               </Button>
             ))}
+            {antallDeaktivert > 0 && (
+              <Button
+                size="sm"
+                variant={visDeaktivert ? "secondary" : "outline"}
+                className="h-7 text-xs ml-auto"
+                onClick={() => setVisDeaktivert(!visDeaktivert)}
+              >
+                {visDeaktivert ? "Skjul" : "Vis"} deaktivert ({antallDeaktivert})
+              </Button>
+            )}
           </div>
         </div>
       </SlideIn>
 
+      {/* Laste-tilstand */}
+      {loading && (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="h-20 p-4" />
+            </Card>
+          ))}
+        </div>
+      )}
+
       {/* Ingen treff */}
-      {filtrerte.length === 0 && (
+      {!loading && filtrerte.length === 0 && (
         <SlideIn direction="up">
           <div className="rounded-xl border border-border/40 py-16 text-center text-muted-foreground">
             <BookOpen className="mx-auto mb-3 h-8 w-8 opacity-40" />
@@ -131,64 +305,110 @@ export default function KontoplanPage() {
       )}
 
       {/* Kontoer gruppert */}
-      {[...grupper.entries()].map(([gruppe, kontoer], i) => (
-        <SlideIn key={gruppe} direction="up" delay={i * 0.04}>
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-semibold">{gruppe}</CardTitle>
-                <Badge
-                  variant="outline"
-                  className={`text-xs font-normal ${KLASSE_BESKRIVELSE[kontoer[0]?.nummer[0] ?? "1"]?.farge ?? ""}`}
-                >
-                  Klasse {kontoer[0]?.nummer[0]}
-                </Badge>
-                <Badge variant="outline" className="text-xs font-normal ml-auto">
-                  {kontoer.length} kontoer
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <tbody>
-                  {kontoer.map((k, ki) => (
-                    <tr
-                      key={k.nummer}
-                      className={`${ki < kontoer.length - 1 ? "border-b border-border/20" : ""} hover:bg-accent/30 transition-colors`}
-                    >
-                      <td className="px-4 py-2.5 font-mono text-sm font-semibold text-muted-foreground w-16">
-                        {k.nummer}
-                      </td>
-                      <td className="px-2 py-2.5 flex-1">{k.navn}</td>
-                      <td className="px-4 py-2.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {k.mvaKode && (
-                            <Badge variant="outline" className="font-mono text-xs py-0">
-                              MVA {k.mvaKode}
+      {!loading &&
+        [...grupper.entries()].map(([gruppe, kontoer], i) => (
+          <SlideIn key={gruppe} direction="up" delay={i * 0.03}>
+            <Card className={kontoer.every((k) => k.erDeaktivert) ? "opacity-50" : ""}>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm font-semibold">{gruppe}</CardTitle>
+                  <Badge
+                    variant="outline"
+                    className={`text-xs font-normal ${KLASSE_BESKRIVELSE[kontoer[0]?.nummer[0] ?? "1"]?.farge ?? ""}`}
+                  >
+                    {kontoer[0]?.erCustom
+                      ? "Egendefinert"
+                      : `Klasse ${kontoer[0]?.nummer[0]}`}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs font-normal ml-auto">
+                    {kontoer.length} kontoer
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <tbody>
+                    {kontoer.map((k, ki) => (
+                      <tr
+                        key={k.nummer}
+                        className={`${ki < kontoer.length - 1 ? "border-b border-border/20" : ""} hover:bg-accent/30 transition-colors ${k.erDeaktivert ? "opacity-40" : ""}`}
+                      >
+                        <td className="px-4 py-2.5 font-mono text-sm font-semibold text-muted-foreground w-16">
+                          {k.nummer}
+                        </td>
+                        <td className="px-2 py-2.5 flex-1">
+                          {k.navn}
+                          {k.erCustom && (
+                            <Badge variant="outline" className="ml-2 text-xs py-0 text-blue-600 border-blue-500/30">
+                              egendefinert
                             </Badge>
                           )}
-                          <Badge
-                            variant="outline"
-                            className={`text-xs py-0 ${
-                              k.type === "inntekt" ? "text-green-600" :
-                              k.type === "kostnad" ? "text-red-600" :
-                              k.type === "eiendel" ? "text-blue-600" :
-                              k.type === "gjeld" ? "text-purple-600" :
-                              "text-muted-foreground"
-                            }`}
-                          >
-                            {k.type}
-                          </Badge>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-        </SlideIn>
-      ))}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {k.mvaKode && !redigerer && (
+                              <Badge variant="outline" className="font-mono text-xs py-0">
+                                MVA {k.mvaKode}
+                              </Badge>
+                            )}
+                            {!redigerer && (
+                              <Badge
+                                variant="outline"
+                                className={`text-xs py-0 ${
+                                  k.type === "inntekt" ? "text-green-600" :
+                                  k.type === "kostnad" ? "text-red-600" :
+                                  k.type === "eiendel" ? "text-blue-600" :
+                                  k.type === "gjeld" ? "text-purple-600" :
+                                  "text-muted-foreground"
+                                }`}
+                              >
+                                {k.type}
+                              </Badge>
+                            )}
+                            {redigerer && (
+                              <div className="flex items-center gap-1">
+                                {k.erCustom && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    onClick={() => deleteCustomKonto(k.nummer)}
+                                    title="Slett egendefinert konto"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 gap-1.5 text-xs"
+                                  onClick={() => toggleAktiv(k.nummer)}
+                                  title={k.erDeaktivert ? "Aktiver konto" : "Deaktiver konto"}
+                                >
+                                  {k.erDeaktivert ? (
+                                    <>
+                                      <ToggleLeft className="h-4 w-4 text-muted-foreground" />
+                                      <span className="text-muted-foreground">Inaktiv</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ToggleRight className="h-4 w-4 text-green-600" />
+                                      <span>Aktiv</span>
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </SlideIn>
+        ))}
 
       {/* NS 4102 info */}
       <SlideIn direction="up" delay={0.1}>
@@ -212,6 +432,11 @@ export default function KontoplanPage() {
                 </div>
               ))}
             </div>
+            {antallCustom > 0 && (
+              <p className="mt-2 text-xs">
+                Du har lagt til <strong>{antallCustom}</strong> egendefinert{antallCustom > 1 ? "e" : ""} konto{antallCustom > 1 ? "er" : ""} utover NS 4102-standarden.
+              </p>
+            )}
           </CardContent>
         </Card>
       </SlideIn>
