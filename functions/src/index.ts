@@ -273,6 +273,11 @@ const handleWebhook = async ({ req, res }: RouteContext) => {
         const periodEnd = invoice?.period_end
           ? new Date(invoice.period_end * 1000)
           : null;
+        const priceItem = sub.items.data[0]?.price;
+        const mrrBeløp = priceItem
+          ? (priceItem.unit_amount ?? 0) / 100 *
+            (priceItem.recurring?.interval === "year" ? 1 / 12 : 1)
+          : 0;
         await db.collection("subscriptions").doc(uid).set({
           stripeCustomerId: session.customer as string,
           stripeSubscriptionId: sub.id,
@@ -280,6 +285,7 @@ const handleWebhook = async ({ req, res }: RouteContext) => {
           status: sub.status,
           currentPeriodEnd: periodEnd,
           cancelAtPeriodEnd: sub.cancel_at_period_end,
+          mrrBeløp,
         }, { merge: true });
       }
       break;
@@ -293,12 +299,17 @@ const handleWebhook = async ({ req, res }: RouteContext) => {
       if (!customerSnap.empty) {
         const item = sub.items.data[0];
         const periodEnd = item ? new Date(item.current_period_end * 1000) : null;
+        const mrrBeløp = item
+          ? (item.price.unit_amount ?? 0) / 100 *
+            (item.price.recurring?.interval === "year" ? 1 / 12 : 1)
+          : 0;
         await customerSnap.docs[0].ref.update({
           stripeSubscriptionId: sub.id,
           stripePriceId: sub.items.data[0]?.price.id ?? null,
           status: sub.status,
           currentPeriodEnd: periodEnd,
           cancelAtPeriodEnd: sub.cancel_at_period_end,
+          mrrBeløp,
         });
       }
       break;
@@ -580,10 +591,16 @@ const getAdminStats = withAdmin(async ({ res }) => {
     db.collection("apiKeys").where("revoked", "==", false).get(),
   ]);
 
+  const mrr = subsSnap.docs.reduce(
+    (sum, d) => sum + ((d.data().mrrBeløp as number) || 0),
+    0
+  );
+
   success(res, {
     totalUsers: usersResult.users.length,
     activeSubscriptions: subsSnap.size,
     totalApiKeys: keysSnap.size,
+    mrr: Math.round(mrr),
   });
 });
 
@@ -1328,6 +1345,12 @@ async function analyserMedGemini(
   begrunnelse: string;
   konfidens: number;
   foreslåttKategori: string;
+  forklaring?: {
+    dokumentSignaler?: string[];
+    kontoValg?: Record<string, string>;
+    regelreferanser?: string[];
+    usikkerhet?: string;
+  };
 } | null> {
   const location = process.env.VERTEX_AI_LOCATION ?? "europe-west1";
   const vertexAI = new VertexAI({ project: projektId, location });

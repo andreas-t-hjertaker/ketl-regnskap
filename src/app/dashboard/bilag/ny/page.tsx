@@ -34,6 +34,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useBilag } from "@/hooks/use-bilag";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
 import { useMotparter } from "@/hooks/use-motparter";
+import { useProsjekter } from "@/hooks/use-prosjekter";
 import { NS4102_KONTOPLAN } from "@/lib/kontoplan";
 import type { Postering } from "@/types";
 
@@ -78,11 +79,13 @@ export default function NyBilagPage() {
   const { aktivKlientId } = useAktivKlient();
   const { addBilag } = useBilag(user?.uid ?? null);
   const { motparter } = useMotparter(user?.uid ?? null, aktivKlientId ?? null);
+  const { prosjekter } = useProsjekter(user?.uid ?? null, aktivKlientId);
 
   const [dato, setDato] = useState(() => new Date().toISOString().slice(0, 10));
   const [beskrivelse, setBeskrivelse] = useState("");
   const [leverandor, setLeverandor] = useState("");
   const [motpartId, setMotpartId] = useState("");
+  const [prosjektId, setProsjektId] = useState("");
   const [kategori, setKategori] = useState("");
   const [forfallsDato, setForfallsDato] = useState("");
   const [rader, setRader] = useState<PosteringRad[]>([nyRad(), nyRad()]);
@@ -172,6 +175,7 @@ export default function NyBilagPage() {
       ...(leverandor ? { leverandor } : {}),
       ...(motpartId ? { motpartId } : {}),
       ...(forfallsDato ? { forfallsDato } : {}),
+      ...(prosjektId ? { prosjektId } : {}),
     });
 
     setLagrer(false);
@@ -252,7 +256,7 @@ export default function NyBilagPage() {
               />
             </div>
             {motparter.length > 0 && (
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="motpart">Motpart (kunde / leverandør)</Label>
                 <select
                   id="motpart"
@@ -265,6 +269,24 @@ export default function NyBilagPage() {
                     <option key={m.id} value={m.id}>
                       {m.navn} ({m.type === "kunde" ? "Kunde" : "Leverandør"})
                       {m.orgnr ? ` · ${m.orgnr}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {prosjekter.length > 0 && (
+              <div className="space-y-1.5">
+                <Label htmlFor="prosjekt">Prosjekt</Label>
+                <select
+                  id="prosjekt"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={prosjektId}
+                  onChange={(e) => setProsjektId(e.target.value)}
+                >
+                  <option value="">— Intet prosjekt —</option>
+                  {prosjekter.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.navn}{p.status !== "aktiv" ? ` (${p.status})` : ""}
                     </option>
                   ))}
                 </select>
