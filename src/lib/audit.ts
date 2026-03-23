@@ -22,11 +22,15 @@ export type AuditHandling =
   | "bilag_kreditert"
   | "bilag_arkivert"
   | "fil_lastet_opp"
-  | "fil_slettet";
+  | "fil_slettet"
+  | "prosjekt_opprettet"
+  | "prosjekt_oppdatert"
+  | "prosjekt_slettet"
+  | "ai_auto_bokfort";
 
 export type AuditEntry = {
   handling: AuditHandling;
-  entitetType: "bilag" | "klient" | "motpart" | "fil";
+  entitetType: "bilag" | "klient" | "motpart" | "fil" | "prosjekt";
   entitetId: string;
   utfortAv: "bruker" | "ai" | "system";
   uid: string;

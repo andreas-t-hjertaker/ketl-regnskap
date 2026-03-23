@@ -39,6 +39,7 @@ import {
   PieChart,
   TrendingDown,
   Banknote,
+  FolderOpen,
 } from "lucide-react";
 import { useAdmin } from "@/hooks/use-admin";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
@@ -53,6 +54,7 @@ const navItems = [
   { href: "/dashboard/rapporter", label: "Rapporter", icon: BarChart3 },
   { href: "/dashboard/budsjett", label: "Budsjett", icon: PieChart },
   { href: "/dashboard/cashflow", label: "Cashflow", icon: Banknote },
+  { href: "/dashboard/prosjekter", label: "Prosjekter", icon: FolderOpen },
   { href: "/dashboard/avskrivninger", label: "Avskrivninger", icon: TrendingDown },
   { href: "/dashboard/aarsoppgjor", label: "Årsoppgjør", icon: BookOpenCheck },
   { href: "/dashboard/kontoplan", label: "Kontoplan", icon: BookMarked },

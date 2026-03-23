@@ -1263,6 +1263,12 @@ SAF-T MVA-koder (bruk disse i "mvaKode"-feltet):
 
 Inkluder "mvaKode" på kostnads- og inntektslinjer. Utelat "mvaKode" der det er 0%.
 
+Du MÅ også inkludere et "forklaring"-objekt som forklarer resonneringen din:
+- "dokumentSignaler": liste med observasjoner du gjorde fra bilagsteksten (leverandørnavn, beskrivelse, beløp, MVA-beregning etc.)
+- "kontoValg": for hvert kontonr, gi en kort begrunnelse for valget
+- "regelreferanser": relevante lovhenvisninger (f.eks. "Bokføringsloven § 10 — originaldokumentasjonskrav")
+- "usikkerhet": punkter der du er usikker (tom liste hvis høy konfidens)
+
 Returner ALLTID et gyldig JSON-objekt (ingen markdown, ingen forklarende tekst rundt JSON).
 
 Format:
@@ -1272,9 +1278,25 @@ Format:
     { "kontonr": "2710", "kontonavn": "Inngående MVA 25%", "debet": 498, "kredit": 0 },
     { "kontonr": "2400", "kontonavn": "Leverandørgjeld", "debet": 0, "kredit": 2490 }
   ],
-  "begrunnelse": "Forklaring på valgene",
+  "begrunnelse": "Kort oppsummering av konteringen",
   "konfidens": 0.9,
-  "foreslåttKategori": "Programvarekostnader"
+  "foreslåttKategori": "Programvarekostnader",
+  "forklaring": {
+    "dokumentSignaler": [
+      "Leverandørnavn 'GitHub' indikerer programvaretjeneste",
+      "Beløp 2490 NOK inkl. 25% MVA gir 1992 NOK eks. MVA"
+    ],
+    "kontoValg": [
+      { "kontonr": "6860", "grunn": "GitHub er en programvare-/lisensleverandør — konto 6860 Programvare og lisenser" },
+      { "kontonr": "2710", "grunn": "Inngående MVA 25% på tjenestekjøp fra norsk leverandør" },
+      { "kontonr": "2400", "grunn": "Leverandørgjeld — standard mottakskonto for fakturaer" }
+    ],
+    "regelreferanser": [
+      "NS 4102 konto 6860 — programvare og IT-tjenester",
+      "Merverdiavgiftsloven § 16 — fradragsrett inngående MVA"
+    ],
+    "usikkerhet": []
+  }
 }`;
 
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
@@ -1427,22 +1449,61 @@ export const analyserBilag = onDocumentCreated(
         return;
       }
 
+      // ─── Konfidensterskel (#94): auto-bokfør hvis innstillingene tillater det ──
+      const aiInnstillingerSnap = await db
+        .doc(`users/${uid}/innstillinger/ai`)
+        .get();
+      const aiInn = aiInnstillingerSnap.exists
+        ? (aiInnstillingerSnap.data() as {
+            konfidensterskel?: number;
+            reviewAll?: boolean;
+            maxAutoBeløp?: number;
+            kritiskeKontoer?: string[];
+          })
+        : {};
+      const terskel = aiInn.konfidensterskel ?? 85;
+      const reviewAll = aiInn.reviewAll ?? false;
+      const maxBeløp = aiInn.maxAutoBeløp ?? 50_000;
+      const kritiske = aiInn.kritiskeKontoer ?? ["2400", "2600", "2700", "2800"];
+
+      const kontoer = forslag.posteringer.map((p: { kontonr: string }) => p.kontonr);
+      const konfidensPst = forslag.konfidens * 100;
+      const beløp = Math.abs(data.belop ?? 0);
+
+      const kanAutoBokføre =
+        !reviewAll &&
+        konfidensPst >= terskel &&
+        (maxBeløp === 0 || beløp <= maxBeløp) &&
+        !kontoer.some((k: string) => kritiske.includes(k));
+
+      const nyStatus = kanAutoBokføre ? "bokført" : "foreslått";
+
       const bilagRef = db.doc(`users/${uid}/bilag/${bilagId}`);
-      await bilagRef.update({
-        status: "foreslått",
+      const oppdatering: Record<string, unknown> = {
+        status: nyStatus,
         aiForslag: {
           posteringer: forslag.posteringer,
           begrunnelse: forslag.begrunnelse,
           konfidens: forslag.konfidens,
           foreslåttKategori: forslag.foreslåttKategori,
           tidspunkt: admin.firestore.FieldValue.serverTimestamp(),
+          // Strukturert forklaring for agent-forklarbarhet (#100)
+          ...(forslag.forklaring ? { forklaring: forslag.forklaring } : {}),
         },
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      };
+
+      // Når auto-bokfør: kopier posteringer og kategori til bilag-dokumentet
+      if (kanAutoBokføre) {
+        oppdatering.posteringer = forslag.posteringer;
+        oppdatering.kategori = forslag.foreslåttKategori;
+      }
+
+      await bilagRef.update(oppdatering);
 
       // Skriv revisjonslogg
       await db.collection(`users/${uid}/audit_log`).add({
-        handling: "ai_forslag_generert",
+        handling: kanAutoBokføre ? "ai_auto_bokfort" : "ai_forslag_generert",
         entitetType: "bilag",
         entitetId: bilagId,
         utfortAv: "ai",
@@ -1451,11 +1512,16 @@ export const analyserBilag = onDocumentCreated(
           konfidens: forslag.konfidens,
           kategori: forslag.foreslåttKategori,
           antallPosteringer: forslag.posteringer.length,
+          autoBokfort: kanAutoBokføre,
+          terskel,
         },
         tidspunkt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      console.log(`[analyserBilag] Genererte AI-forslag for bilag ${bilagId} med konfidens ${forslag.konfidens}`);
+      console.log(
+        `[analyserBilag] Bilag ${bilagId}: konfidens=${konfidensPst.toFixed(0)}%, ` +
+        `terskel=${terskel}%, status="${nyStatus}", autoBooking=${kanAutoBokføre}`
+      );
     } catch (err) {
       console.error(`[analyserBilag] Feil ved analyse av bilag ${bilagId}:`, err);
     }

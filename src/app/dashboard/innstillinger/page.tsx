@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -84,6 +84,17 @@ export default function InnstillingerPage() {
   // ─── AI-innstillinger ─────────────────────────────────────
   const { innstillinger: aiInnstillinger, oppdater: oppdaterAi } = useAiInnstillinger(user?.uid ?? null);
   const [nyKritiskKonto, setNyKritiskKonto] = useState("");
+  const [feedbackStats, setFeedbackStats] = useState<{
+    totalt: number; godkjent: number; avvist: number; korrigert: number; godkjenningsRate: number;
+  } | null>(null);
+
+  // Last feedback-statistikk
+  useEffect(() => {
+    if (!user?.uid) return;
+    import("@/lib/ai-feedback").then(({ hentFeedbackStatistikk }) => {
+      hentFeedbackStatistikk(user.uid!).then(setFeedbackStats);
+    });
+  }, [user?.uid]);
 
   const hasPasswordProvider = firebaseUser?.providerData.some(
     (p) => p.providerId === "password"
@@ -777,6 +788,36 @@ export default function InnstillingerPage() {
                 >
                   Legg til
                 </Button>
+              </div>
+            </div>
+          )}
+          {/* Feedback-statistikk */}
+          {feedbackStats && feedbackStats.totalt > 0 && (
+            <div className="space-y-2 pt-2 border-t border-border/40">
+              <p className="text-sm font-medium">AI-læring — din brukshistorikk</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { label: "Totalt", value: feedbackStats.totalt },
+                  { label: "Godkjent", value: feedbackStats.godkjent },
+                  { label: "Avvist", value: feedbackStats.avvist },
+                  { label: "Korrigert", value: feedbackStats.korrigert },
+                ].map((s) => (
+                  <div key={s.label} className="rounded border p-2 text-center">
+                    <p className="text-lg font-bold">{s.value}</p>
+                    <p className="text-[11px] text-muted-foreground">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full bg-green-500 rounded-full"
+                    style={{ width: `${feedbackStats.godkjenningsRate}%` }}
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  {feedbackStats.godkjenningsRate}% godkjenningsrate
+                </span>
               </div>
             </div>
           )}
