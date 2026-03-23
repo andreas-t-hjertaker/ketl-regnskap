@@ -19,16 +19,21 @@ import {
   BarChart3,
   FileText,
   AlertCircle,
+  Users,
+  Truck,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { SlideIn, StaggerList, StaggerItem } from "@/components/motion";
 import { useAuth } from "@/hooks/use-auth";
 import { useRapporter } from "@/hooks/use-rapporter";
 import { useAktivKlient } from "@/hooks/use-aktiv-klient";
 import { useMotparter } from "@/hooks/use-motparter";
+import { useReskontro, type ReskontroPoster, type ÅpenPost, type AldersBøtte } from "@/hooks/use-reskontro";
 import { lastNedSaftXml, saftMetadata } from "@/lib/saft-eksport";
 import { eksporterResultatCsv } from "@/lib/eksport";
 
-type Fane = "resultat" | "balanse" | "mva" | "saft";
+type Fane = "resultat" | "balanse" | "mva" | "reskontro" | "saft";
 
 function formatNOK(value: number) {
   return new Intl.NumberFormat("nb-NO", {
@@ -58,6 +63,305 @@ function genererPerioder(bilagDatoer: string[]) {
   return [...månedAlternativer, ...årAlternativer, { key: "alt", label: "Alle perioder" }];
 }
 
+// ─── Reskontro-hjelpefunksjoner ───────────────────────────────────────────────
+
+const ALDERSBØTTE_FARGER: Record<AldersBøtte, string> = {
+  "0-30":  "text-green-600 bg-green-500/10",
+  "31-60": "text-yellow-600 bg-yellow-500/10",
+  "61-90": "text-orange-600 bg-orange-500/10",
+  "91+":   "text-red-600 bg-red-500/10",
+};
+
+const ALDERSBØTTE_ETIKETTER: Record<AldersBøtte, string> = {
+  "0-30":  "0–30 dager",
+  "31-60": "31–60 dager",
+  "61-90": "61–90 dager",
+  "91+":   "91+ dager",
+};
+
+function ReskontroPosterKort({
+  post,
+  type,
+}: {
+  post: ReskontroPoster;
+  type: "kunde" | "leverandor";
+}) {
+  const [åpen, setÅpen] = useState(false);
+  const aldresBøtter: AldersBøtte[] = ["0-30", "31-60", "61-90", "91+"];
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            {type === "kunde" ? (
+              <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+            ) : (
+              <Truck className="h-4 w-4 text-muted-foreground shrink-0" />
+            )}
+            <div>
+              <CardTitle className="text-base">{post.motpartNavn}</CardTitle>
+              {post.orgnr && (
+                <CardDescription className="font-mono text-xs">
+                  {post.orgnr}
+                </CardDescription>
+              )}
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="font-bold text-base">{formatNOK(post.totalBelop)}</p>
+            <p className="text-xs text-muted-foreground">
+              {post.åpnePoster.length} bilag
+            </p>
+          </div>
+        </div>
+        {/* Aldersfordeling-bar */}
+        <div className="grid grid-cols-4 gap-1 mt-2">
+          {aldresBøtter.map((b) => (
+            <div key={b} className={`rounded px-2 py-1 text-xs ${ALDERSBØTTE_FARGER[b]}`}>
+              <p className="font-medium">{formatNOK(post.aldersfordeling[b])}</p>
+              <p className="opacity-70">{ALDERSBØTTE_ETIKETTER[b]}</p>
+            </div>
+          ))}
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs gap-1"
+          onClick={() => setÅpen(!åpen)}
+        >
+          {åpen ? (
+            <ChevronDown className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+          {åpen ? "Skjul" : "Vis"} poster
+        </Button>
+        {åpen && (
+          <table className="w-full text-sm mt-2">
+            <thead>
+              <tr className="border-b border-border/50">
+                <th className="text-left py-1.5 px-2 text-xs font-medium text-muted-foreground">Bilag#</th>
+                <th className="text-left py-1.5 px-2 text-xs font-medium text-muted-foreground">Dato</th>
+                <th className="text-left py-1.5 px-2 text-xs font-medium text-muted-foreground">Beskrivelse</th>
+                <th className="text-right py-1.5 px-2 text-xs font-medium text-muted-foreground">Beløp</th>
+                <th className="text-right py-1.5 px-2 text-xs font-medium text-muted-foreground">Alder</th>
+              </tr>
+            </thead>
+            <tbody>
+              {post.åpnePoster.map((p) => (
+                <tr key={p.bilagId} className="border-b border-border/20">
+                  <td className="py-1.5 px-2 font-mono text-xs text-muted-foreground">
+                    #{p.bilagsnr}
+                  </td>
+                  <td className="py-1.5 px-2 text-xs">{p.dato}</td>
+                  <td className="py-1.5 px-2 max-w-[200px] truncate text-xs">{p.beskrivelse}</td>
+                  <td className="py-1.5 px-2 text-right font-medium">{formatNOK(p.belop)}</td>
+                  <td className="py-1.5 px-2 text-right">
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${ALDERSBØTTE_FARGER[p.aldersBøtte]}`}
+                    >
+                      {p.dagerGammel} dager
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function UfiltrertePostListe({ poster, tittel }: { poster: ÅpenPost[]; tittel: string }) {
+  if (poster.length === 0) return null;
+  return (
+    <Card className="border-muted/50">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm text-muted-foreground">{tittel}</CardTitle>
+        <CardDescription className="text-xs">
+          Disse bilagene har ikke tilknyttet motpart.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        <table className="w-full text-sm">
+          <tbody>
+            {poster.map((p) => (
+              <tr key={p.bilagId} className="border-t border-border/20">
+                <td className="py-2 px-4 font-mono text-xs text-muted-foreground">#{p.bilagsnr}</td>
+                <td className="py-2 px-2 text-xs">{p.dato}</td>
+                <td className="py-2 px-2 truncate max-w-[200px] text-xs">{p.beskrivelse}</td>
+                <td className="py-2 px-4 text-right font-medium">{formatNOK(p.belop)}</td>
+                <td className="py-2 px-4 text-right">
+                  <Badge variant="outline" className={`text-xs ${ALDERSBØTTE_FARGER[p.aldersBøtte]}`}>
+                    {p.dagerGammel} dager
+                  </Badge>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ReskontroFane({ reskontro }: { reskontro: ReturnType<typeof useReskontro> }) {
+  const [aktivReskontroFane, setAktivReskontroFane] = useState<"kunder" | "leverandorer">("kunder");
+
+  const ingenData =
+    reskontro.kundefordringer.length === 0 &&
+    reskontro.leverandørgjeld.length === 0 &&
+    reskontro.ufiltrerteKundebilag.length === 0 &&
+    reskontro.ufiltrerteLevebilag.length === 0;
+
+  if (ingenData) {
+    return (
+      <SlideIn direction="up">
+        <div className="rounded-xl border border-border/40 py-16 text-center text-muted-foreground">
+          <Users className="mx-auto mb-3 h-8 w-8 opacity-40" />
+          <p className="text-sm font-medium">Ingen reskontrodata</p>
+          <p className="text-xs mt-1">
+            Bokfør bilag med konto 1500 (kundefordringer) eller 2400 (leverandørgjeld)
+            og knytt dem til en motpart for å se reskontro.
+          </p>
+        </div>
+      </SlideIn>
+    );
+  }
+
+  const vistePoster =
+    aktivReskontroFane === "kunder"
+      ? reskontro.kundefordringer
+      : reskontro.leverandørgjeld;
+  const ufiltrerteViste =
+    aktivReskontroFane === "kunder"
+      ? reskontro.ufiltrerteKundebilag
+      : reskontro.ufiltrerteLevebilag;
+  const totalVist =
+    aktivReskontroFane === "kunder"
+      ? reskontro.totalKundefordringer
+      : reskontro.totalLeverandørgjeld;
+
+  return (
+    <div className="space-y-4">
+      {/* Totaler */}
+      <StaggerList className="grid gap-4 sm:grid-cols-2" staggerDelay={0.07}>
+        {[
+          {
+            label: "Totale kundefordringer",
+            value: reskontro.totalKundefordringer,
+            icon: Users,
+            color: "text-blue-600",
+          },
+          {
+            label: "Total leverandørgjeld",
+            value: reskontro.totalLeverandørgjeld,
+            icon: Truck,
+            color: "text-purple-600",
+          },
+        ].map((stat) => (
+          <StaggerItem key={stat.label}>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardDescription className="text-xs font-medium uppercase tracking-wide">
+                  {stat.label}
+                </CardDescription>
+                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+              </CardHeader>
+              <CardContent>
+                <p className={`text-2xl font-bold ${stat.color}`}>
+                  {formatNOK(stat.value)}
+                </p>
+              </CardContent>
+            </Card>
+          </StaggerItem>
+        ))}
+      </StaggerList>
+
+      {/* Faner */}
+      <div className="flex gap-1 rounded-lg border border-border/50 p-1 w-fit">
+        <Button
+          variant={aktivReskontroFane === "kunder" ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => setAktivReskontroFane("kunder")}
+          className="gap-1.5"
+        >
+          <Users className="h-3.5 w-3.5" />
+          Kundefordringer
+          <Badge variant="secondary" className="ml-1 text-xs px-1.5">
+            {reskontro.kundefordringer.length}
+          </Badge>
+        </Button>
+        <Button
+          variant={aktivReskontroFane === "leverandorer" ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => setAktivReskontroFane("leverandorer")}
+          className="gap-1.5"
+        >
+          <Truck className="h-3.5 w-3.5" />
+          Leverandørgjeld
+          <Badge variant="secondary" className="ml-1 text-xs px-1.5">
+            {reskontro.leverandørgjeld.length}
+          </Badge>
+        </Button>
+      </div>
+
+      {/* Sammendrag + total */}
+      {totalVist > 0 && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">
+            {vistePoster.length} {aktivReskontroFane === "kunder" ? "kunder" : "leverandører"} med åpne poster
+          </span>
+          <span className="font-semibold">{formatNOK(totalVist)} totalt</span>
+        </div>
+      )}
+
+      {/* Liste per motpart */}
+      {vistePoster.length > 0 && (
+        <div className="space-y-3">
+          {vistePoster.map((post, i) => (
+            <SlideIn key={post.motpartId} direction="up" delay={i * 0.04}>
+              <ReskontroPosterKort
+                post={post}
+                type={aktivReskontroFane === "kunder" ? "kunde" : "leverandor"}
+              />
+            </SlideIn>
+          ))}
+        </div>
+      )}
+
+      <UfiltrertePostListe
+        poster={ufiltrerteViste}
+        tittel={
+          aktivReskontroFane === "kunder"
+            ? "Bilag med konto 1500 uten tilknyttet kunde"
+            : "Bilag med konto 2400 uten tilknyttet leverandør"
+        }
+      />
+
+      {totalVist === 0 && (
+        <SlideIn direction="up">
+          <div className="rounded-xl border border-border/40 py-12 text-center text-muted-foreground">
+            {aktivReskontroFane === "kunder" ? (
+              <Users className="mx-auto mb-3 h-8 w-8 opacity-40" />
+            ) : (
+              <Truck className="mx-auto mb-3 h-8 w-8 opacity-40" />
+            )}
+            <p className="text-sm">
+              Ingen {aktivReskontroFane === "kunder" ? "kundefordringer" : "leverandørgjeld"} funnet.
+            </p>
+          </div>
+        </SlideIn>
+      )}
+    </div>
+  );
+}
+
 export default function RapporterPage() {
   const { user } = useAuth();
   const { aktivKlient, aktivKlientId } = useAktivKlient();
@@ -66,6 +370,7 @@ export default function RapporterPage() {
     aktivKlientId
   );
   const { motparter } = useMotparter(user?.uid ?? null, aktivKlientId);
+  const reskontro = useReskontro(bilag, motparter);
   const [genererSaft, setGenererSaft] = useState(false);
   const periodeAlternativer = useMemo(
     () => genererPerioder(bilag.map((b) => b.dato)),
@@ -126,6 +431,7 @@ export default function RapporterPage() {
             { id: "resultat" as Fane, label: "Resultatregnskap", icon: TrendingUp },
             { id: "balanse" as Fane, label: "Balanse", icon: BarChart3 },
             { id: "mva" as Fane, label: "MVA-rapport", icon: FileText },
+            { id: "reskontro" as Fane, label: "Reskontro", icon: Users },
             { id: "saft" as Fane, label: "SAF-T", icon: FileBarChart },
           ].map((fane) => (
             <Button
@@ -393,6 +699,11 @@ export default function RapporterPage() {
             </StaggerList>
           )}
         </div>
+      )}
+
+      {/* Reskontro */}
+      {!loading && aktivFane === "reskontro" && (
+        <ReskontroFane reskontro={reskontro} />
       )}
 
       {/* SAF-T */}
