@@ -33,6 +33,7 @@ import {
 } from "@/components/motion";
 import { Varsler } from "@/components/varsler";
 import { Fristmonitor } from "@/components/fristmonitor";
+import { InntektKostnadGraf } from "@/components/inntekt-kostnad-graf";
 
 function formatNOK(value: number) {
   return new Intl.NumberFormat("nb-NO", {
@@ -316,6 +317,12 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {!loading && bilag.length > 0 && (
+        <SlideIn direction="up" delay={0.1}>
+          <InntektKostnadGraf bilag={bilag} />
+        </SlideIn>
+      )}
 
       {!loading && bilag.length > 0 && (
         <>
