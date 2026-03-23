@@ -36,6 +36,7 @@ import { Fristmonitor } from "@/components/fristmonitor";
 import { InntektKostnadGraf } from "@/components/inntekt-kostnad-graf";
 import { AnomaliWidget } from "@/components/anomali-widget";
 import { useAnomalideteksjon } from "@/hooks/use-anomalideteksjon";
+import { useFaktura } from "@/hooks/use-faktura";
 
 function formatNOK(value: number) {
   return new Intl.NumberFormat("nb-NO", {
@@ -76,6 +77,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const { aktivKlientId, aktivKlient, visAlleKlienter } = useAktivKlient();
   const { bilag, loading } = useBilag(user?.uid ?? null, aktivKlientId);
+  const { fakturaer } = useFaktura(user?.uid ?? null, aktivKlientId);
 
   const inntektKostnad = beregnInntektOgKostnad(bilag);
   const ubehandledeBilag = bilag.filter((b) => b.status === "ubehandlet").slice(0, 5);
@@ -105,7 +107,7 @@ export default function DashboardPage() {
       </SlideIn>
 
       {/* Varsler */}
-      {!loading && <Varsler bilag={bilag} />}
+      {!loading && <Varsler bilag={bilag} fakturaer={fakturaer} />}
 
       {/* Anomalideteksjon (#38) */}
       {!loading && anomalier.length > 0 && (

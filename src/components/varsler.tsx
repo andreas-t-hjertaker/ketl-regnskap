@@ -15,6 +15,7 @@ import Link from "next/link";
 import { AlertCircle, Bot, CalendarClock, X } from "lucide-react";
 import { useState } from "react";
 import type { BilagMedId } from "@/hooks/use-bilag";
+import type { FakturaMedId } from "@/hooks/use-faktura";
 
 // ─── MVA-frister ─────────────────────────────────────────────────────────────
 
@@ -70,7 +71,7 @@ type Varsel = {
   lenkeTekst?: string;
 };
 
-function byggVarsler(bilag: BilagMedId[]): Varsel[] {
+function byggVarsler(bilag: BilagMedId[], fakturaer: FakturaMedId[]): Varsel[] {
   const varsler: Varsel[] = [];
 
   // 1. Ubehandlede bilag
@@ -123,7 +124,27 @@ function byggVarsler(bilag: BilagMedId[]): Varsel[] {
     });
   }
 
-  // 4. MVA-frister innen 30 dager
+  // 4. Forfalte fakturaer
+  const forfalteFakturaer = fakturaer.filter(
+    (f) => (f.status === "forfalt" || f.status === "sendt") &&
+      f.forfallsDato < nå &&
+      !f.purring?.inkasso
+  );
+  if (forfalteFakturaer.length > 0) {
+    const totalSum = forfalteFakturaer.reduce((s, f) => s + f.sumInkMva, 0);
+    const formatNOK = (v: number) =>
+      new Intl.NumberFormat("nb-NO", { style: "currency", currency: "NOK", maximumFractionDigits: 0 }).format(v);
+    varsler.push({
+      id: "forfalte-fakturaer",
+      type: "warning",
+      tittel: `${forfalteFakturaer.length} faktura${forfalteFakturaer.length > 1 ? "er" : ""} er forfalt`,
+      melding: `Utestående ${formatNOK(totalSum)} inkl. MVA. Send purring eller krediter.`,
+      lenke: "/dashboard/faktura",
+      lenkeTekst: "Gå til fakturaer →",
+    });
+  }
+
+  // 5. MVA-frister innen 30 dager
   const frister = nesteMvaFrister();
   if (frister.length > 0) {
     const neste = frister[0];
@@ -188,10 +209,10 @@ function VarselBanner({ varsel, onLukk }: { varsel: Varsel; onLukk: (id: string)
 
 // ─── Eksportert komponent ─────────────────────────────────────────────────────
 
-export function Varsler({ bilag }: { bilag: BilagMedId[] }) {
+export function Varsler({ bilag, fakturaer = [] }: { bilag: BilagMedId[]; fakturaer?: FakturaMedId[] }) {
   const [lukkede, setLukkede] = useState<Set<string>>(new Set());
 
-  const alleVarsler = byggVarsler(bilag);
+  const alleVarsler = byggVarsler(bilag, fakturaer);
   const synlige = alleVarsler.filter((v) => !lukkede.has(v.id));
 
   if (synlige.length === 0) return null;
