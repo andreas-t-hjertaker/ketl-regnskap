@@ -1,1 +1,63 @@
-{ "indexes": [], "fieldOverrides": [] }
+{
+  "indexes": [
+    {
+      "collectionGroup": "bilag",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "klientId", "order": "ASCENDING" },
+        { "fieldPath": "dato", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bilag",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "dato", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bilag",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "klientId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "dato", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bilag",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "forfallsDato", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "motparter",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "klientId", "order": "ASCENDING" },
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "navn", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "motparter",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "klientId", "order": "ASCENDING" },
+        { "fieldPath": "navn", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "audit_log",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "entitetType", "order": "ASCENDING" },
+        { "fieldPath": "tidspunkt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
