@@ -21,6 +21,7 @@ import {
   X,
   CreditCard,
   BookOpen,
+  Printer,
 } from "lucide-react";
 import {
   Card,
@@ -382,6 +383,184 @@ function NyFakturaPanel({
   );
 }
 
+// ─── SkrivUtFaktura ───────────────────────────────────────────────────────────
+// Printbart fakturavisning iht. Mval. § 15-10 (salgsdokumentasjon)
+
+function SkrivUtFaktura({
+  faktura,
+  klient,
+  onLukk,
+}: {
+  faktura: FakturaMedId;
+  klient: { id: string; navn: string; orgnr: string; adresse?: string; bankkontonr?: string; fakturaBunntekst?: string };
+  onLukk: () => void;
+}) {
+  const idag = new Date().toLocaleDateString("nb-NO", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
+  function skrivUt() {
+    window.print();
+  }
+
+  // MVA-spesifikasjon per sats
+  const mvaSummer: Record<number, { grunnlag: number; mva: number }> = {};
+  for (const l of faktura.linjer) {
+    const grunnlag = l.antall * l.enhetspris * (1 - (l.rabatt ?? 0) / 100);
+    const mva = grunnlag * (l.mvaSats / 100);
+    if (!mvaSummer[l.mvaSats]) mvaSummer[l.mvaSats] = { grunnlag: 0, mva: 0 };
+    mvaSummer[l.mvaSats].grunnlag += grunnlag;
+    mvaSummer[l.mvaSats].mva += mva;
+  }
+
+  return (
+    <>
+      <style>{`
+        @media print {
+          body > * { display: none !important; }
+          #faktura-print { display: block !important; position: fixed; top: 0; left: 0; width: 100%; }
+          #faktura-print .no-print { display: none !important; }
+        }
+        @media screen {
+          #faktura-print { position: fixed; inset: 0; z-index: 50; overflow-y: auto; background: rgba(0,0,0,0.6); display: flex; justify-content: center; padding: 2rem; }
+        }
+      `}</style>
+      <div id="faktura-print">
+        <div className="bg-white text-black w-full max-w-2xl mx-auto rounded-lg shadow-2xl p-10 print:shadow-none print:rounded-none print:p-8">
+          {/* Lukkknapp / Print-knapp */}
+          <div className="no-print flex items-center justify-end gap-2 mb-6">
+            <button
+              onClick={skrivUt}
+              className="flex items-center gap-2 rounded-md bg-black text-white px-4 py-2 text-sm font-medium hover:bg-gray-800"
+            >
+              <Printer className="h-4 w-4" />
+              Skriv ut / Lagre som PDF
+            </button>
+            <button
+              onClick={onLukk}
+              className="flex items-center gap-1 rounded-md border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50"
+            >
+              <X className="h-4 w-4" />
+              Lukk
+            </button>
+          </div>
+
+          {/* Brevhode */}
+          <div className="flex justify-between items-start mb-8">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">{klient.navn}</h1>
+              {klient.adresse && <p className="text-sm text-gray-600 mt-0.5">{klient.adresse}</p>}
+              {klient.orgnr && (
+                <p className="text-sm text-gray-600 mt-1">Org.nr: {klient.orgnr} MVA</p>
+              )}
+            </div>
+            <div className="text-right">
+              <p className="text-3xl font-bold text-gray-800">FAKTURA</p>
+              <p className="text-sm font-mono font-semibold mt-1">{faktura.fakturanrFormatert}</p>
+            </div>
+          </div>
+
+          {/* Faktura-info */}
+          <div className="grid grid-cols-2 gap-6 mb-8">
+            <div>
+              <p className="text-xs font-semibold uppercase text-gray-500 mb-1">Faktureres til</p>
+              <p className="font-semibold">{faktura.kundeNavn}</p>
+              {faktura.kundeOrgnr && (
+                <p className="text-sm text-gray-600">Org.nr: {faktura.kundeOrgnr}</p>
+              )}
+            </div>
+            <div className="text-right space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Fakturadato:</span>
+                <span className="font-medium">{faktura.dato}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Forfallsdato:</span>
+                <span className="font-medium text-red-600">{faktura.forfallsDato}</span>
+              </div>
+              {faktura.kid && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">KID:</span>
+                  <span className="font-mono font-medium">{faktura.kid}</span>
+                </div>
+              )}
+              {faktura.bankkontonr && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Kontonr:</span>
+                  <span className="font-mono font-medium">{faktura.bankkontonr}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Linjetabell */}
+          <table className="w-full text-sm mb-6 border-collapse">
+            <thead>
+              <tr className="border-b-2 border-gray-800">
+                <th className="text-left py-2 font-semibold text-gray-700">Beskrivelse</th>
+                <th className="text-right py-2 font-semibold text-gray-700 w-16">Ant.</th>
+                <th className="text-right py-2 font-semibold text-gray-700 w-24">Enhetspris</th>
+                <th className="text-right py-2 font-semibold text-gray-700 w-16">MVA</th>
+                <th className="text-right py-2 font-semibold text-gray-700 w-24">Beløp</th>
+              </tr>
+            </thead>
+            <tbody>
+              {faktura.linjer.map((l, i) => {
+                const linjeSum = l.antall * l.enhetspris * (1 - (l.rabatt ?? 0) / 100);
+                return (
+                  <tr key={i} className="border-b border-gray-100">
+                    <td className="py-2 text-gray-800">
+                      {l.beskrivelse || "—"}
+                      {l.rabatt ? <span className="text-xs text-gray-500 ml-1">({l.rabatt}% rabatt)</span> : null}
+                    </td>
+                    <td className="py-2 text-right text-gray-700">{l.antall}</td>
+                    <td className="py-2 text-right text-gray-700">{fmtKr(l.enhetspris)}</td>
+                    <td className="py-2 text-right text-gray-500">{l.mvaSats}%</td>
+                    <td className="py-2 text-right font-medium">{fmtKr(linjeSum)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {/* Summer */}
+          <div className="flex justify-end">
+            <div className="w-64 space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Sum eks. MVA</span>
+                <span>{fmtKr(faktura.sumEksMva)}</span>
+              </div>
+              {Object.entries(mvaSummer).map(([sats, { grunnlag, mva }]) => (
+                <div key={sats} className="flex justify-between text-sm text-gray-500">
+                  <span>MVA {sats}% av {fmtKr(grunnlag)}</span>
+                  <span>{fmtKr(mva)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between font-bold text-base border-t border-gray-800 pt-2 mt-2">
+                <span>Å betale</span>
+                <span>{fmtKr(faktura.sumInkMva)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Bunntekst */}
+          {(klient.fakturaBunntekst || faktura.bunntekst) && (
+            <div className="mt-8 pt-4 border-t border-gray-200 text-xs text-gray-500">
+              {faktura.bunntekst ?? klient.fakturaBunntekst}
+            </div>
+          )}
+
+          <div className="mt-6 text-xs text-gray-400 text-center">
+            Utskrift generert {idag}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── FakturaKort ──────────────────────────────────────────────────────────────
 
 function FakturaKort({
@@ -392,6 +571,7 @@ function FakturaKort({
   onSlett,
   onBokfor,
   onPurring,
+  onSkrivUt,
 }: {
   faktura: FakturaMedId;
   onMarkerSendt: () => void;
@@ -400,6 +580,7 @@ function FakturaKort({
   onSlett: () => void;
   onBokfor: () => void;
   onPurring: () => void;
+  onSkrivUt: () => void;
 }) {
   const [betaltDatoInput, setBetaltDatoInput] = useState(false);
   const [betaltDato, setBetaltDato] = useState(new Date().toISOString().slice(0, 10));
@@ -562,23 +743,30 @@ function FakturaKort({
               Mer <ChevronDown className="h-3 w-3" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onSkrivUt}>
+                <Printer className="h-3.5 w-3.5 mr-2" />
+                Skriv ut / PDF
+              </DropdownMenuItem>
               {faktura.status !== "kreditert" && faktura.status !== "kladd" && (
                 <>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={onKrediter}>
                     <X className="h-3.5 w-3.5 mr-2" />
                     Krediter faktura
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
                 </>
               )}
               {erKladd && (
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={onSlett}
-                >
-                  <Trash2 className="h-3.5 w-3.5 mr-2" />
-                  Slett kladd
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={onSlett}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-2" />
+                    Slett kladd
+                  </DropdownMenuItem>
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -613,6 +801,8 @@ export default function FakturaPage() {
 
   const [visNy, setVisNy] = useState(false);
   const [statusFilter, setStatusFilter] = useState<FakturaStatus | "alle">("alle");
+  const [printFakturaId, setPrintFakturaId] = useState<string | null>(null);
+  const printFaktura = fakturaer.find((f) => f.id === printFakturaId) ?? null;
 
   const kunder = useMemo(
     () => motparter.filter((m) => m.type === "kunde"),
@@ -638,6 +828,15 @@ export default function FakturaPage() {
 
   return (
     <SlideIn>
+      {/* Printvisning */}
+      {printFaktura && aktivKlient && (
+        <SkrivUtFaktura
+          faktura={printFaktura}
+          klient={aktivKlient}
+          onLukk={() => setPrintFakturaId(null)}
+        />
+      )}
+
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -777,6 +976,7 @@ export default function FakturaPage() {
                 onSlett={() => slettFaktura(faktura.id, faktura.fakturanrFormatert)}
                 onBokfor={() => bokforFaktura(faktura.id, faktura)}
                 onPurring={() => registrerPurring(faktura.id, faktura)}
+                onSkrivUt={() => setPrintFakturaId(faktura.id)}
               />
             ))}
           </div>
