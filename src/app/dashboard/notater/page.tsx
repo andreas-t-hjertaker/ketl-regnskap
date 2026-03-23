@@ -8,7 +8,7 @@
  */
 
 import { useState } from "react";
-import { Plus, FileText, Clock, Trash2 } from "lucide-react";
+import { Plus, FileText, Clock, Trash2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -26,12 +26,44 @@ import { showToast } from "@/lib/toast";
 import { formatDate } from "@/lib/utils";
 
 export default function NotaterPage() {
-  const { notes, loading, createNote, deleteNote } = useNotes();
+  const { notes, loading, createNote, updateNote, deleteNote } = useNotes();
   const [visSkjema, setVisSkjema] = useState(false);
   const [tittel, setTittel] = useState("");
   const [innhold, setInnhold] = useState("");
   const [lagrer, setLagrer] = useState(false);
   const [åpentNotat, setÅpentNotat] = useState<string | null>(null);
+  const [redigererNotatId, setRedigererNotatId] = useState<string | null>(null);
+  const [redigererTittel, setRedigererTittel] = useState("");
+  const [redigererInnhold, setRedigererInnhold] = useState("");
+  const [lagrerRedigering, setLagrerRedigering] = useState(false);
+
+  function startRedigering(noteId: string, title: string, content: string) {
+    setRedigererNotatId(noteId);
+    setRedigererTittel(title);
+    setRedigererInnhold(content);
+  }
+
+  function avbrytRedigering() {
+    setRedigererNotatId(null);
+    setRedigererTittel("");
+    setRedigererInnhold("");
+  }
+
+  async function handleOppdater(id: string) {
+    if (!redigererTittel.trim()) {
+      showToast.error("Tittel er påkrevd.");
+      return;
+    }
+    setLagrerRedigering(true);
+    const ok = await updateNote(id, redigererTittel.trim(), redigererInnhold.trim());
+    setLagrerRedigering(false);
+    if (ok) {
+      showToast.success("Notat oppdatert.");
+      avbrytRedigering();
+    } else {
+      showToast.error("Klarte ikke oppdatere notatet.");
+    }
+  }
 
   async function handleOpprett() {
     if (!tittel.trim()) {
@@ -142,50 +174,99 @@ export default function NotaterPage() {
         <StaggerList className="space-y-3" staggerDelay={0.05}>
           {notes.map((note) => (
             <StaggerItem key={note.id}>
-              <Card
-                className="cursor-pointer hover:border-primary/30 transition-colors group"
-                onClick={() => setÅpentNotat(åpentNotat === note.id ? null : note.id)}
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-sm font-semibold leading-snug">
-                      {note.title}
-                    </CardTitle>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {formatDate(note.createdAt)}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteNote(note.id);
-                        }}
-                        title="Slett notat"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
+              {redigererNotatId === note.id ? (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Rediger notat</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`tittel-${note.id}`}>Tittel *</Label>
+                      <Input
+                        id={`tittel-${note.id}`}
+                        value={redigererTittel}
+                        onChange={(e) => setRedigererTittel(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`innhold-${note.id}`}>Innhold</Label>
+                      <textarea
+                        id={`innhold-${note.id}`}
+                        className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                        value={redigererInnhold}
+                        onChange={(e) => setRedigererInnhold(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={avbrytRedigering} disabled={lagrerRedigering}>
+                        <X className="mr-1.5 h-3.5 w-3.5" />
+                        Avbryt
+                      </Button>
+                      <Button onClick={() => handleOppdater(note.id)} disabled={lagrerRedigering || !redigererTittel.trim()}>
+                        <Check className="mr-1.5 h-3.5 w-3.5" />
+                        {lagrerRedigering ? "Lagrer…" : "Lagre"}
                       </Button>
                     </div>
-                  </div>
-                </CardHeader>
-                {(åpentNotat === note.id || !note.content) && note.content && (
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      {note.content}
-                    </p>
                   </CardContent>
-                )}
-                {åpentNotat !== note.id && note.content && (
-                  <CardContent className="pb-3">
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {note.content}
-                    </p>
-                  </CardContent>
-                )}
-              </Card>
+                </Card>
+              ) : (
+                <Card
+                  className="cursor-pointer hover:border-primary/30 transition-colors group"
+                  onClick={() => setÅpentNotat(åpentNotat === note.id ? null : note.id)}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-sm font-semibold leading-snug">
+                        {note.title}
+                      </CardTitle>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {formatDate(note.createdAt)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startRedigering(note.id, note.title, note.content);
+                          }}
+                          title="Rediger notat"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteNote(note.id);
+                          }}
+                          title="Slett notat"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  {(åpentNotat === note.id || !note.content) && note.content && (
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                        {note.content}
+                      </p>
+                    </CardContent>
+                  )}
+                  {åpentNotat !== note.id && note.content && (
+                    <CardContent className="pb-3">
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {note.content}
+                      </p>
+                    </CardContent>
+                  )}
+                </Card>
+              )}
             </StaggerItem>
           ))}
         </StaggerList>

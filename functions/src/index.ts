@@ -138,6 +138,23 @@ const getNotes = withAuth(async ({ user, res }) => {
   success(res, notes);
 });
 
+/** PATCH /notes/:id — Oppdater notat (kun eier) */
+const updateNote = withValidation(createNoteSchema.partial(), async ({ user, req, data, res }) => {
+  const noteId = pathSegment(req.path, 1);
+  if (!noteId) return fail(res, "Mangler notat-ID", 400);
+
+  const ref = db.collection("notes").doc(noteId);
+  const snap = await ref.get();
+  if (!snap.exists) return fail(res, "Notat ikke funnet", 404);
+  if ((snap.data() as { userId: string }).userId !== user.uid) {
+    return fail(res, "Ingen tilgang", 403);
+  }
+
+  await ref.update({ ...data, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+  const updated = await ref.get();
+  success(res, { id: ref.id, ...updated.data() });
+});
+
 /** DELETE /notes/:id — Slett notat (kun eier) */
 const deleteNote = withAuth(async ({ user, req, res }) => {
   const noteId = pathSegment(req.path, 1);
@@ -1666,10 +1683,10 @@ export const api = onRequest(
       if (req.method === "DELETE") { await v1DeleteMotpart({ req, res }); return; }
     }
 
-    // ─── Notater: DELETE /notes/:id ─────────────────────────────────────────
-    if (req.method === "DELETE" && req.path.startsWith("/notes/")) {
-      await deleteNote({ req, res });
-      return;
+    // ─── Notater: PATCH/DELETE /notes/:id ───────────────────────────────────
+    if (req.path.startsWith("/notes/")) {
+      if (req.method === "PATCH") { await updateNote({ req, res }); return; }
+      if (req.method === "DELETE") { await deleteNote({ req, res }); return; }
     }
 
     // ─── Webhooks: DELETE /webhooks/:id, GET /webhooks/:id/logg ─────────────
