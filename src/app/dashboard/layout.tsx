@@ -88,16 +88,30 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           </main>
         </div>
         <AiAssistant
-          title="ketl assistent"
-          welcomeMessage="Hei! Jeg er din AI-assistent. Spør meg om hva som helst!"
+          title="ketl regnskapsassistent"
+          welcomeMessage="Hei! Jeg er din AI-regnskapsassistent. Spør meg om bilagsregistrering, kontoplan, MVA, lønn, periodeavslutning eller hva du ellers lurer på!"
           contextProvider={() => ({
             user: user
               ? { displayName: user.displayName, email: user.email, uid: user.uid }
               : undefined,
-            appName: "ketl cloud",
+            appName: "ketl regnskap",
             currentPath: typeof window !== "undefined" ? window.location.pathname : "/dashboard",
-            customContext:
-              "Tilgjengelige tjenester: Firebase Hosting, Firestore, Cloud Storage, Cloud Functions, AI Logic, Analytics.",
+            customContext: [
+              "Tilgjengelige moduler i ketl regnskap:",
+              "- Bilag: registrere og bokføre inngående/utgående bilag med AI-forslag",
+              "- Faktura: opprette og sende utgående fakturaer (FF-YYYY-NNNNN), inkl. purring og bokføring",
+              "- Klienter: administrere regnskapsklienter med orgnr, kontakt og faktura-innstillinger",
+              "- Motparter: leverandører og kunder med BRREG-oppslag",
+              "- Rapporter: resultatregnskap, balanse, MVA-rapport, SAF-T-eksport, kontantstrøm",
+              "- Budsjett: sammenligne faktiske tall mot budsjett per konto",
+              "- Prosjekter: koble bilag til prosjekter og følge prosjektresultat",
+              "- Bankavst.: importere banktransaksjoner (CSV) og matche mot bilag",
+              "- A-melding: lønn, arbeidsgiveravgift og lønnsseddel",
+              "- Avskrivninger: saldoavskrivning og linære avskrivningsplaner",
+              "- Kontoplan: norsk kontoplan NS 4102 med MVA-koder",
+              "- Årsoppgjør: fullstendig årsregnskap med SAF-T og CSV-eksport",
+              "- Revisjonslogg: sporing av alle handlinger",
+            ].join("\n"),
           })}
         />
         <OnboardingStepper />
