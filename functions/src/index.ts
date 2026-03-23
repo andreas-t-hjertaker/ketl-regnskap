@@ -924,7 +924,10 @@ const v1Resultat = withApiKeyOrAuth(async ({ user, req, res }) => {
 const motpartSchema = z.object({
   type: z.enum(["kunde", "leverandor"]),
   navn: z.string().min(1).max(200),
-  orgnr: z.string().regex(/^\d{9}$/).optional(),
+  orgnr: z.string().regex(/^\d{9}$/, "Organisasjonsnummer må ha 9 siffer").refine(
+    erGyldigOrgnr,
+    "Ugyldig organisasjonsnummer (Modulus-11-sjekk feilet)"
+  ).optional(),
   kontaktperson: z.string().max(200).optional(),
   epost: z.string().email().optional(),
   telefon: z.string().max(30).optional(),
