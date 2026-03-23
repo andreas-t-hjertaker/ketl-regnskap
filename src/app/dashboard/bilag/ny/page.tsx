@@ -142,7 +142,7 @@ export default function NyBilagPage() {
   const kanLagre = useMemo(() => {
     const harBeskrivelse = beskrivelse.trim().length > 0;
     const harRader = rader.every((r) => r.kontonr && (r.debet || r.kredit));
-    return harBeskrivelse && harRader && erBalansert && totalDebet > 0;
+    return !!aktivKlientId && harBeskrivelse && harRader && erBalansert && totalDebet > 0;
   }, [beskrivelse, rader, erBalansert, totalDebet]);
 
   async function handleLagre(status: "bokført" | "ubehandlet") {
